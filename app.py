@@ -2,7 +2,7 @@ import geopandas as gpd
 import folium
 
 # Load shapefile
-gdf = gpd.read_file("castorvillages2.shp")
+gdf = gpd.read_file("castor_village_level_acreage_ha.shp")
 
 # Ensure castor_ha is numeric
 gdf["castor_ha"] = gdf["castor_ha"].astype(float)
