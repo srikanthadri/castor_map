@@ -6,7 +6,7 @@ from streamlit_folium import st_folium
 # Load shapefile
 @st.cache_data
 def load_data():
-    gdf = gpd.read_file("D:\\castor_map\\shp\\castor_village_level_acreage_ha.shp")
+    gdf = gpd.read_file("castor_village_level_acreage_ha.shp")
     return gdf
 
 gdf = load_data()
