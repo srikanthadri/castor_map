@@ -1,39 +1,51 @@
-import streamlit as st
 import geopandas as gpd
 import folium
-from streamlit_folium import st_folium
 
 # Load shapefile
-@st.cache_data
-def load_data():
-    gdf = gpd.read_file("castor_village_level_acreage_ha.shp")
-    return gdf
+gdf = gpd.read_file("castorvillages2.shp")
 
-gdf = load_data()
+# Ensure castor_ha is numeric
+gdf["castor_ha"] = gdf["castor_ha"].astype(float)
 
-st.title("Village Castor Acreage Dashboard")
+# Get centroid of the state to set map center
+center = [gdf.geometry.centroid.y.mean(), gdf.geometry.centroid.x.mean()]
 
-# Dropdowns
-districts = sorted(gdf["DISTRICT"].unique())
-district = st.selectbox("Select District", districts)
+# Create folium map
+m = folium.Map(location=center, zoom_start=8, tiles="CartoDB positron")
 
-tehsils = sorted(gdf[gdf["DISTRICT"] == district]["TEHSIL"].unique())
-tehsil = st.selectbox("Select Tehsil", tehsils)
+# Choropleth map based on castor_ha
+choropleth = folium.Choropleth(
+    geo_data=gdf,
+    name="Castor Acreage",
+    data=gdf,
+    columns=["VILLAGE", "castor_ha"],
+    key_on="feature.properties.VILLAGE",
+    fill_color="YlOrRd",
+    fill_opacity=0.7,
+    line_opacity=0.3,
+    legend_name="Castor Area (ha)",
+).add_to(m)
 
-villages = gdf[(gdf["DISTRICT"] == district) & (gdf["TEHSIL"] == tehsil)]
-village = st.selectbox("Select Village", sorted(villages["VILLAGE"].unique()))
+# Add tooltips (on hover show details)
+folium.GeoJsonTooltip(
+    fields=["VILLAGE", "TEHSIL", "DISTRICT", "STATE", "castor_ha"],
+    aliases=["Village:", "Tehsil:", "District:", "State:", "Castor Area (ha):"],
+    sticky=True
+).add_to(choropleth.geojson)
 
-# Show castor area (instead of 'Area')
-selected = villages[villages["VILLAGE"] == village]
-castor_area = selected.iloc[0]["castor_ha"]
-st.metric("Castor Area (hectares)", f"{castor_area:.2f}")
+# Highlight selected village on click
+highlight = folium.GeoJson(
+    gdf,
+    style_function=lambda x: {"fillColor": "transparent", "color": "blue", "weight": 2},
+    highlight_function=lambda x: {"weight": 4, "color": "red"},
+    tooltip=folium.GeoJsonTooltip(
+        fields=["VILLAGE", "TEHSIL", "DISTRICT", "STATE", "castor_ha"],
+        aliases=["Village:", "Tehsil:", "District:", "State:", "Castor Area (ha):"],
+    ),
+).add_to(m)
 
-# Map
-m = folium.Map(location=[
-    selected.geometry.centroid.y.values[0],
-    selected.geometry.centroid.x.values[0]
-], zoom_start=12)
+# Add Layer control
+folium.LayerControl().add_to(m)
 
-folium.GeoJson(selected, tooltip=["VILLAGE", "TEHSIL", "DISTRICT", "castor_ha"]).add_to(m)
-
-st_folium(m, width=700, height=500)
+# Save map
+m.save("castor_village_map.html")
