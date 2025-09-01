@@ -1,119 +1,133 @@
 import streamlit as st
 import geopandas as gpd
 import folium
+from folium.features import GeoJsonTooltip
 from streamlit_folium import st_folium
 import branca.colormap as cm
 
-# --------------------
+# ----------------------------
 # Load shapefile
-# --------------------
+# ----------------------------
 @st.cache_data
 def load_data():
-    gdf = gpd.read_file("castor_village_level_acreage_ha.shp")
-    gdf = gdf.to_crs(epsg=4326)  # ensure lat/lon
+    gdf = gpd.read_file(r"castor_village_level_acreage_ha.shp")  # change path
+    gdf = gdf.to_crs(epsg=4326)  # convert to lat/lon
     return gdf
 
 gdf = load_data()
 
-# Ensure HA column is numeric
-gdf["HA"] = gdf["HA"].fillna(0).astype(float)
+# ----------------------------
+# Title
+# ----------------------------
+st.title("🌱 BANAS KANTHA District - Castor Crop Acreage Dashboard")
 
-# --------------------
+# ----------------------------
 # Sidebar filters
-# --------------------
-st.sidebar.header("Filters")
+# ----------------------------
+st.sidebar.title("Filters")
 
-tehsils = ["All"] + sorted(gdf["tehsil"].dropna().unique().tolist())
+# Tehsil filter
+tehsils = ["All"] + sorted(gdf["TEHSIL"].dropna().unique().tolist())
 selected_tehsil = st.sidebar.selectbox("Select Tehsil", tehsils)
 
-villages = ["All"]
+# Filter villages based on tehsil
 if selected_tehsil != "All":
-    villages += sorted(gdf[gdf["tehsil"] == selected_tehsil]["village"].dropna().unique().tolist())
+    villages = gdf[gdf["TEHSIL"] == selected_tehsil]["VILLAGE"].dropna().unique().tolist()
 else:
-    villages += sorted(gdf["village"].dropna().unique().tolist())
+    villages = gdf["VILLAGE"].dropna().unique().tolist()
 
+villages = ["All"] + sorted(villages)
 selected_village = st.sidebar.selectbox("Select Village", villages)
 
-# --------------------
-# Filter GeoDataFrame
-# --------------------
-if selected_tehsil == "All":
-    filtered_gdf = gdf.copy()
-else:
-    filtered_gdf = gdf[gdf["tehsil"] == selected_tehsil]
+# ----------------------------
+# Data filtering
+# ----------------------------
+filtered_gdf = gdf.copy()
+if selected_tehsil != "All":
+    filtered_gdf = filtered_gdf[filtered_gdf["TEHSIL"] == selected_tehsil]
 
-if selected_village != "All":
-    filtered_gdf = filtered_gdf[filtered_gdf["village"] == selected_village]
+# ----------------------------
+# Create map
+# ----------------------------
+m = folium.Map(
+    location=[filtered_gdf.geometry.centroid.y.mean(),
+              filtered_gdf.geometry.centroid.x.mean()],
+    zoom_start=9,
+    tiles="CartoDB positron"
+)
 
-# --------------------
-# Create Folium Map
-# --------------------
-center = [gdf.geometry.centroid.y.mean(), gdf.geometry.centroid.x.mean()]
-m = folium.Map(location=center, zoom_start=9, tiles="cartodbpositron")
-
-# Color scale
-min_val, max_val = gdf["HA"].min(), gdf["HA"].max()
-colormap = cm.linear.YlGnBu_09.scale(min_val, max_val)
-colormap.caption = f"Castor Area (ha)\nMin: {min_val:.1f} | Max: {max_val:.1f}"
+# Color scale based on "castor_ha"
+min_val, max_val = filtered_gdf["castor_ha"].min(), filtered_gdf["castor_ha"].max()
+colormap = cm.LinearColormap(colors=['yellow', 'darkgreen'],
+                             vmin=min_val, vmax=max_val)
+colormap.caption = f"Castor Area (ha) | Min: {min_val} | Max: {max_val}"
 colormap.add_to(m)
 
-# Add all villages with HA coloring
-style_function = lambda x: {
-    "fillColor": colormap(x["properties"]["HA"]),
-    "color": "black",
-    "weight": 0.5,
-    "fillOpacity": 0.7,
-}
+# Add polygons
+def style_function(feature):
+    village_name = feature["properties"]["VILLAGE"]
+    ha_value = feature["properties"]["castor_ha"]
 
-highlight_function = lambda x: {
-    "fillColor": "#ff0000",
-    "color": "red",
-    "weight": 2,
-    "fillOpacity": 0.9,
-}
+    # Highlight if selected
+    if selected_village != "All" and village_name == selected_village:
+        return {
+            "fillColor": "blue",
+            "color": "black",
+            "weight": 3,
+            "fillOpacity": 0.8,
+        }
+    else:
+        return {
+            "fillColor": colormap(ha_value) if ha_value is not None else "grey",
+            "color": "black",
+            "weight": 1,
+            "fillOpacity": 0.6,
+        }
 
-folium.GeoJson(
-    gdf,
-    name="All Villages",
+tooltip = GeoJsonTooltip(
+    fields=["VILLAGE", "TEHSIL", "castor_ha"],
+    aliases=["Village:", "Tehsil:", "Castor (ha):"],
+    localize=True
+)
+
+geojson = folium.GeoJson(
+    filtered_gdf,
     style_function=style_function,
-    highlight_function=highlight_function,
-    tooltip=folium.GeoJsonTooltip(fields=["tehsil", "village", "HA"], aliases=["Tehsil", "Village", "HA (ha)"]),
+    tooltip=tooltip,
+    name="Villages"
 ).add_to(m)
 
-# Zoom & highlight selected village
-selected_info = None
-if selected_village != "All":
-    sel = gdf[gdf["village"] == selected_village]
-    if not sel.empty:
-        folium.GeoJson(
-            sel,
-            style_function=lambda x: {"fillColor": "#ff0000", "color": "red", "weight": 3, "fillOpacity": 0.9},
-            tooltip=folium.GeoJsonTooltip(fields=["tehsil", "village", "HA"]),
-        ).add_to(m)
-        centroid = sel.geometry.centroid.iloc[0]
-        m.location = [centroid.y, centroid.x]
-        m.zoom_start = 12
-        selected_info = sel.iloc[0].to_dict()
+# ----------------------------
+# Show map in Streamlit
+# ----------------------------
+st_data = st_folium(m, width=800, height=600)
 
-# --------------------
-# Render map
-# --------------------
-st_data = st_folium(m, width=900, height=600)
+# ----------------------------
+# Show village info
+# ----------------------------
+village_info = None
 
-# --------------------
-# Click selection
-# --------------------
-if st_data and st_data.get("last_active_drawing"):
+# If user clicks polygon
+if st_data and "last_active_drawing" in st_data and st_data["last_active_drawing"]:
     props = st_data["last_active_drawing"]["properties"]
-    selected_info = props
+    village_info = {
+        "Village": props.get("VILLAGE"),
+        "Tehsil": props.get("TEHSIL"),
+        "Castor Area (ha)": props.get("castor_ha")
+    }
 
-# --------------------
-# Info Panel
-# --------------------
-st.sidebar.header("Village Info")
-if selected_info:
-    st.sidebar.write(f"**Tehsil:** {selected_info['tehsil']}")
-    st.sidebar.write(f"**Village:** {selected_info['village']}")
-    st.sidebar.write(f"**Area (ha):** {selected_info['HA']:.2f}")
-else:
-    st.sidebar.write("Select a village from dropdown or click on map.")
+# If village selected from dropdown
+elif selected_village != "All":
+    selected_row = filtered_gdf[filtered_gdf["VILLAGE"] == selected_village]
+    if not selected_row.empty:
+        village_info = {
+            "Village": selected_row["VILLAGE"].values[0],
+            "Tehsil": selected_row["TEHSIL"].values[0],
+            "Castor Area (ha)": selected_row["castor_ha"].values[0]
+        }
+
+# Display info in sidebar
+if village_info:
+    st.sidebar.subheader("Village Information")
+    for k, v in village_info.items():
+        st.sidebar.write(f"**{k}:** {v}")
