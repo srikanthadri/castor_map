@@ -9,7 +9,7 @@ import branca.colormap as cm
 shapefile_path = "castor_village_level_acreage_ha.shp"
 gdf = gpd.read_file(shapefile_path)
 
-st.title("Castor Crop Dashboard")
+st.title("BANAS KANTHA District Castor Crop acereage Dashboard")
 
 # Sidebar filters
 tehsils = ["All"] + sorted(gdf["TEHSIL"].dropna().unique().tolist())
@@ -65,7 +65,7 @@ if selected_village != "All":
             tooltip=folium.Tooltip(
                 f"<b>Village:</b> {selected_village}<br>"
                 f"<b>Castor Area:</b> {village_gdf['castor_ha'].values[0]} ha<br>"
-                f"<b>Shape Area:</b> {village_gdf['Shape_Area'].values[0]:,.2f}"
+                
             ),
         ).add_to(m)
 
@@ -78,7 +78,7 @@ if selected_village != "All":
         st.sidebar.write(f"**Village:** {selected_village}")
         st.sidebar.write(f"**Tehsil:** {selected_tehsil}")
         st.sidebar.write(f"**Castor Area (ha):** {village_gdf['castor_ha'].values[0]}")
-        st.sidebar.write(f"**Shape Area:** {village_gdf['Shape_Area'].values[0]:,.2f}")
+        
 
 # Add legend
 colormap.add_to(m)
