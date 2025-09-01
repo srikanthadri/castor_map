@@ -1,6 +1,7 @@
 import geopandas as gpd
 import folium
 from folium.features import GeoJsonTooltip
+import streamlit as st
 
 
 # Load shapefile
