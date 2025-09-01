@@ -43,22 +43,24 @@ selected_village = st.sidebar.selectbox("Select Village", villages)
 # Data filtering
 # ----------------------------
 filtered_gdf = gdf.copy()
-
 if selected_tehsil != "All":
     filtered_gdf = filtered_gdf[filtered_gdf["TEHSIL"] == selected_tehsil]
 
 # ----------------------------
 # Create map
 # ----------------------------
-m = folium.Map(location=[filtered_gdf.geometry.centroid.y.mean(),
-                         filtered_gdf.geometry.centroid.x.mean()],
-               zoom_start=9, tiles="CartoDB positron")
+m = folium.Map(
+    location=[filtered_gdf.geometry.centroid.y.mean(),
+              filtered_gdf.geometry.centroid.x.mean()],
+    zoom_start=9,
+    tiles="CartoDB positron"
+)
 
 # Color scale based on "castor_ha"
 min_val, max_val = filtered_gdf["castor_ha"].min(), filtered_gdf["castor_ha"].max()
 colormap = cm.LinearColormap(colors=['yellow', 'darkgreen'],
                              vmin=min_val, vmax=max_val)
-colormap.caption = "Castor Area (ha)"
+colormap.caption = f"Castor Area (ha) | Min: {min_val} | Max: {max_val}"
 colormap.add_to(m)
 
 # Add polygons
@@ -82,20 +84,50 @@ def style_function(feature):
             "fillOpacity": 0.6,
         }
 
-tooltip = GeoJsonTooltip(fields=["VILLAGE", "TEHSIL", "castor_ha"],
-                         aliases=["Village:", "Tehsil:", "Castor (ha):"],
-                         localize=True)
+tooltip = GeoJsonTooltip(
+    fields=["VILLAGE", "TEHSIL", "castor_ha"],
+    aliases=["Village:", "Tehsil:", "Castor (ha):"],
+    localize=True
+)
 
-folium.GeoJson(
+geojson = folium.GeoJson(
     filtered_gdf,
     style_function=style_function,
     tooltip=tooltip,
+    name="Villages"
 ).add_to(m)
 
 # ----------------------------
-# Show map
+# Show map in Streamlit
 # ----------------------------
-from streamlit_folium import st_folium
-
-# Display map in Streamlit
 st_data = st_folium(m, width=800, height=600)
+
+# ----------------------------
+# Show village info
+# ----------------------------
+village_info = None
+
+# If user clicks polygon
+if st_data and "last_active_drawing" in st_data and st_data["last_active_drawing"]:
+    props = st_data["last_active_drawing"]["properties"]
+    village_info = {
+        "Village": props.get("VILLAGE"),
+        "Tehsil": props.get("TEHSIL"),
+        "Castor Area (ha)": props.get("castor_ha")
+    }
+
+# If village selected from dropdown
+elif selected_village != "All":
+    selected_row = filtered_gdf[filtered_gdf["VILLAGE"] == selected_village]
+    if not selected_row.empty:
+        village_info = {
+            "Village": selected_row["VILLAGE"].values[0],
+            "Tehsil": selected_row["TEHSIL"].values[0],
+            "Castor Area (ha)": selected_row["castor_ha"].values[0]
+        }
+
+# Display info in sidebar
+if village_info:
+    st.sidebar.subheader("Village Information")
+    for k, v in village_info.items():
+        st.sidebar.write(f"**{k}:** {v}")
