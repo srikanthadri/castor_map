@@ -1,6 +1,7 @@
 import geopandas as gpd
 import folium
-from folium.plugins import GeoJsonTooltip
+from folium.features import GeoJsonTooltip
+
 
 # Load shapefile
 gdf = gpd.read_file("castor_village_level_acreage_ha.shp")
