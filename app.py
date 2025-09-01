@@ -1,69 +1,69 @@
 import streamlit as st
 import geopandas as gpd
 import folium
-from streamlit_folium import st_folium 
-from branca.colormap import linear
+from streamlit_folium import st_folium
+import matplotlib.cm as cm
+import matplotlib.colors as colors
 
 # Load shapefile
-shapefile_path = "castor_village_level_acreage_ha.shp"  # change path
+shapefile_path = r"castor_village_level_acreage_ha.shp"
 gdf = gpd.read_file(shapefile_path)
 
-# Ensure column names are clean
-gdf.columns = gdf.columns.str.strip()
+# Drop rows with missing TEHSIL or VILLAGE to avoid NoneType errors
+gdf = gdf.dropna(subset=["TEHSIL", "VILLAGE"])
+
+st.title("Tehsil & Village Dashboard")
 
 # Sidebar filters
-tehsils = ["All"] + sorted(gdf["TEHSIL"].unique().tolist())
-selected_tehsil = st.sidebar.selectbox("Select Tehsil", tehsils)
+tehsil_options = ["All"] + sorted(gdf["TEHSIL"].unique().tolist())
+selected_tehsil = st.sidebar.selectbox("Select Tehsil", tehsil_options)
 
 if selected_tehsil == "All":
-    filtered_tehsil = gdf
+    filtered_gdf = gdf
 else:
-    filtered_tehsil = gdf[gdf["TEHSIL"] == selected_tehsil]
+    filtered_gdf = gdf[gdf["TEHSIL"] == selected_tehsil]
 
-villages = ["All"] + sorted(filtered_tehsil["VILLAGE"].unique().tolist())
-selected_village = st.sidebar.selectbox("Select Village", villages)
+village_options = ["All"] + sorted(filtered_gdf["VILLAGE"].unique().tolist())
+selected_village = st.sidebar.selectbox("Select Village", village_options)
 
-# Main map
-m = folium.Map(location=[filtered_tehsil.geometry.centroid.y.mean(),
-                         filtered_tehsil.geometry.centroid.x.mean()],
-               zoom_start=8)
+# Base map (zoom on filtered area)
+if not filtered_gdf.empty:
+    center = filtered_gdf.geometry.centroid.unary_union.centroid.coords[0][::-1]
+    m = folium.Map(location=center, zoom_start=10)
+else:
+    m = folium.Map(location=[20.5937, 78.9629], zoom_start=5)
 
-# Create color map based on 'castor_ha'
-colormap = linear.YlGnBu_09.scale(gdf["castor_ha"].min(), gdf["castor_ha"].max())
-colormap.caption = "Castor area (ha)"
-colormap.add_to(m)
+# Color map for castor_ha
+min_val, max_val = gdf["castor_ha"].min(), gdf["castor_ha"].max()
+colormap = cm.ScalarMappable(norm=colors.Normalize(vmin=min_val, vmax=max_val), cmap="YlOrRd")
 
 # Add polygons
-for _, row in filtered_tehsil.iterrows():
-    color = colormap(row["castor_ha"])
+for _, row in filtered_gdf.iterrows():
+    color = colors.to_hex(colormap.to_rgba(row["castor_ha"]))
     folium.GeoJson(
         row["geometry"],
-        style_function=lambda x, color=color: {
+        style_function=lambda feature, color=color: {
             "fillColor": color,
-            "color": "black",
-            "weight": 1,
-            "fillOpacity": 0.6,
+            "color": "black" if row["VILLAGE"] == selected_village else "gray",
+            "weight": 3 if row["VILLAGE"] == selected_village else 1,
+            "fillOpacity": 0.7,
         },
-        tooltip=f"Village: {row['VILLAGE']}<br>Tehsil: {row['TEHSIL']}<br>HA: {row['castor_ha']}"
+        tooltip=folium.Tooltip(
+            f"Village: {row['VILLAGE']}<br>Tehsil: {row['TEHSIL']}<br>Castor (ha): {row['castor_ha']}"
+        ),
     ).add_to(m)
 
-# Highlight selected village
-if selected_village != "All":
-    village_row = filtered_tehsil[filtered_tehsil["VILLAGE"] == selected_village]
-    if not village_row.empty:
-        folium.GeoJson(
-            village_row.geometry,
-            style_function=lambda x: {
-                "fillColor": "red",
-                "color": "yellow",
-                "weight": 3,
-                "fillOpacity": 0.9,
-            },
-            tooltip=f"Village: {village_row['VILLAGE'].values[0]}<br>Tehsil: {village_row['TEHSIL'].values[0]}<br>HA: {village_row['castor_ha'].values[0]}"
-        ).add_to(m)
-        # Zoom to selected village
-        m.fit_bounds(village_row.geometry.total_bounds.reshape(2,2).tolist())
+# Add legend colorbar
+from branca.colormap import LinearColormap
+linear = LinearColormap(
+    colors=["#ffffb2","#fecc5c","#fd8d3c","#f03b20","#bd0026"],
+    vmin=min_val, vmax=max_val,
+    caption="Castor Area (ha)"
+)
+linear.add_to(m)
 
-# Display map in Streamlit
+# Show map
 st_folium(m, width=800, height=600)
+
+
 
