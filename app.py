@@ -95,4 +95,7 @@ folium.GeoJson(
 # ----------------------------
 # Show map
 # ----------------------------
-st_data = st_folium(m,
+from streamlit_folium import st_folium
+
+# Display map in Streamlit
+st_data = st_folium(m, width=800, height=600)
