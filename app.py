@@ -3,68 +3,55 @@ import streamlit as st
 import geopandas as gpd
 import folium
 from streamlit_folium import st_folium
-import branca.colormap as bcm
+import matplotlib.cm as cm
+import matplotlib.colors as colors
 
 # Load shapefile
-shapefile_path = r"castor_village_level_acreage_ha.shp"
-gdf = gpd.read_file(shapefile_path)
-
-# Reproject to web mercator for centroid calculations
-gdf = gdf.to_crs(epsg=3857)
+gdf = gpd.read_file(r"castor_village_level_acreage_ha.shp")
 
 # Sidebar filters
-tehsils = gdf["TEHSIL"].unique()
-selected_tehsil = st.sidebar.selectbox("Select Tehsil", tehsils)
+selected_tehsil = st.sidebar.selectbox("Select Tehsil", gdf["TEHSIL"].unique())
+tehsil_data = gdf[gdf["TEHSIL"] == selected_tehsil]
 
-villages = gdf[gdf["TEHSIL"] == selected_tehsil]["VILLAGE"].unique()
-selected_village = st.sidebar.selectbox("Select Village", villages)
+selected_village = st.sidebar.selectbox("Select Village", tehsil_data["VILLAGE"].unique())
+village_data = tehsil_data[tehsil_data["VILLAGE"] == selected_village]
 
-# Filter data
-tehsil_gdf = gdf[gdf["TEHSIL"] == selected_tehsil]
-village_gdf = tehsil_gdf[tehsil_gdf["VILLAGE"] == selected_village]
+# Create folium map centered on tehsil
+m = folium.Map(location=[tehsil_data.geometry.centroid.y.mean(), 
+                         tehsil_data.geometry.centroid.x.mean()], zoom_start=11)
 
-# Compute center of tehsil for map zoom
-tehsil_center = tehsil_gdf.geometry.centroid.unary_union.centroid
-# Convert back to lat/lon for folium
-tehsil_center = gpd.GeoSeries([tehsil_center], crs=3857).to_crs(epsg=4326).iloc[0]
+# Color mapping for villages (based on castor_ha)
+norm = colors.Normalize(vmin=tehsil_data["castor_ha"].min(), vmax=tehsil_data["castor_ha"].max())
+cmap = cm.ScalarMappable(norm=norm, cmap="YlGn")
 
-m = folium.Map(location=[tehsil_center.y, tehsil_center.x], zoom_start=11)
-
-# Color scale for castor_ha
-min_ha, max_ha = tehsil_gdf["castor_ha"].min(), tehsil_gdf["castor_ha"].max()
-colormap = bcm.linear.YlGnBu_09.scale(min_ha, max_ha)
-colormap.caption = "Castor Area (ha)"
-
-def style_function(feature):
-    ha_value = feature["properties"]["castor_ha"]
-    return {
-        "fillColor": colormap(ha_value),
-        "color": "black",
-        "weight": 1,
-        "fillOpacity": 0.6,
-    }
-
-# Add all villages in selected tehsil
-folium.GeoJson(
-    tehsil_gdf,
-    style_function=style_function,
-    tooltip=folium.GeoJsonTooltip(fields=["VILLAGE", "castor_ha"]),
-).add_to(m)
+for _, row in tehsil_data.iterrows():
+    color = colors.to_hex(cmap.to_rgba(row["castor_ha"]))
+    folium.GeoJson(
+        row["geometry"],
+        style_function=lambda feature, color=color: {
+            "fillColor": color,
+            "color": "black",
+            "weight": 1,
+            "fillOpacity": 0.6,
+        },
+        tooltip=f"{row['VILLAGE']} - {row['castor_ha']} ha"
+    ).add_to(m)
 
 # Highlight selected village
 folium.GeoJson(
-    village_gdf,
-    style_function=lambda x: {
+    village_data["geometry"],
+    style_function=lambda feature: {
         "fillColor": "red",
         "color": "red",
         "weight": 3,
-        "fillOpacity": 0.7,
+        "fillOpacity": 0.8,
     },
-    tooltip=folium.GeoJsonTooltip(fields=["VILLAGE", "castor_ha"]),
+    tooltip=f"Selected: {selected_village} - {village_data['castor_ha'].values[0]} ha"
 ).add_to(m)
 
-# Add legend
-colormap.add_to(m)
+# Show map
+st_folium(m, width=700, height=500)
+
 
 # Show map in Streamlit
 st_folium(m, width=700, height=500)
