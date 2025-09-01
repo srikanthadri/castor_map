@@ -17,8 +17,10 @@ m = folium.Map(location=center, zoom_start=7, tiles="CartoDB positron")
 # Convert GeoDataFrame to GeoJSON
 gdf_json = gdf.to_json()
 import json
+
 props = json.loads(gdf_json)["features"][0]["properties"]
-st.write("Properties in GeoJSON:", props.keys())
+st.write("Properties in GeoJSON:", list(props.keys()))
+
 
 # Choropleth map based on castor_ha
 choropleth = folium.Choropleth(
