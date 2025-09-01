@@ -1,62 +1,43 @@
-import geopandas as gpd
-import folium
-from folium.features import GeoJsonTooltip
 import streamlit as st
-
+import folium
+import geopandas as gpd
+from streamlit_folium import st_folium
 
 # Load shapefile
-gdf = gpd.read_file("castor_village_level_acreage_ha.shp")
+shapefile_path = "your_shapefile.shp"   # change to your shapefile path
+gdf = ggpd.read_file("castor_village_level_acreage_ha.shp")pd.read_file(shapefile_path)
 
-# Ensure castor_ha is numeric
-gdf["castor_ha"] = gdf["castor_ha"].astype(float)
-
-# Get centroid of the layer for map center
-center = [gdf.geometry.centroid.y.mean(), gdf.geometry.centroid.x.mean()]
-
-# Create folium map
-m = folium.Map(location=center, zoom_start=7, tiles="CartoDB positron")
-# Convert GeoDataFrame to GeoJSON
+# Convert to GeoJSON string
 gdf_json = gdf.to_json()
-import json
 
-props = json.loads(gdf_json)["features"][0]["properties"]
-st.write("Properties in GeoJSON:", list(props.keys()))
+# Create Folium Map
+m = folium.Map(location=[20.5937, 78.9629], zoom_start=5)
 
-
-# Choropleth map based on castor_ha
-choropleth = folium.Choropleth(
+# Add Choropleth
+folium.Choropleth(
     geo_data=gdf_json,
-    name="Castor Acreage",
+    name="Castor Hectares",
     data=gdf,
-    columns=["VILLAGE", "castor_ha"],
-    key_on="feature.properties.VILLAGE",  # must match property name in GeoJSON
-    fill_color="YlOrRd",
+    columns=["VILLAGE", "castor_ha"],   # joining field and values
+    key_on="feature.properties.VILLAGE",  # join key in GeoJSON
+    fill_color="YlGnBu",
     fill_opacity=0.7,
-    line_opacity=0.3,
-    legend_name="Castor Area (ha)",
+    line_opacity=0.2,
+    legend_name="Castor Area (ha)"
 ).add_to(m)
 
-
-# Add tooltips (hover info)
-GeoJsonTooltip(
-    fields=["VILLAGE", "TEHSIL", "DISTRICT", "STATE", "castor_ha"],
-    aliases=["Village:", "Tehsil:", "District:", "State:", "Castor Area (ha):"],
-    sticky=True
-).add_to(choropleth.geojson)
-
-# Highlight boundaries on hover/click
+# Add tooltips
 folium.GeoJson(
-    gdf,
-    style_function=lambda x: {"fillColor": "transparent", "color": "black", "weight": 0.5},
-    highlight_function=lambda x: {"weight": 3, "color": "yellow"},
-    tooltip=GeoJsonTooltip(
+    gdf_json,
+    name="Labels",
+    tooltip=folium.GeoJsonTooltip(
         fields=["VILLAGE", "TEHSIL", "DISTRICT", "STATE", "castor_ha"],
         aliases=["Village:", "Tehsil:", "District:", "State:", "Castor Area (ha):"],
-    ),
+        localize=True
+    )
 ).add_to(m)
 
-# Add Layer control
-folium.LayerControl().add_to(m)
+# Render map in Streamlit
+st.title("Castor Area by Village")
+st_folium(m, width=900, height=600)
 
-# Save map
-m.save("castor_village_map.html")
