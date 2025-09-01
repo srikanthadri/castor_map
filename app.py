@@ -1,51 +1,49 @@
 import geopandas as gpd
 import folium
 
-# Load shapefile
+# --- Load shapefile ---
 gdf = gpd.read_file("castor_village_level_acreage_ha.shp")
 
-# Ensure castor_ha is numeric
-gdf["castor_ha"] = gdf["castor_ha"].astype(float)
+# --- Clean column names (remove spaces, force uppercase) ---
+gdf.columns = gdf.columns.str.strip().str.upper()
 
-# Get centroid of the state to set map center
+# --- Ensure castor_ha is numeric ---
+gdf["CASTOR_HA"] = gdf["CASTOR_HA"].astype(float)
+
+# --- Reproject before centroid warning ---
+gdf = gdf.to_crs(epsg=4326)  # WGS84 (lat/lon)
 center = [gdf.geometry.centroid.y.mean(), gdf.geometry.centroid.x.mean()]
 
-# Create folium map
+# --- Create folium map ---
 m = folium.Map(location=center, zoom_start=8, tiles="CartoDB positron")
 
-# Choropleth map based on castor_ha
+# ✅ Choropleth
 choropleth = folium.Choropleth(
-    geo_data=gdf,
+    geo_data=gdf.to_json(),   # use JSON, not raw gdf
     name="Castor Acreage",
     data=gdf,
-    columns=["VILLAGE", "castor_ha"],
-    key_on="feature.properties.VILLAGE",
+    columns=["VILLAGE", "CASTOR_HA"],   # after cleanup, uppercase
+    key_on="feature.properties.VILLAGE",  # ✅ now matches cleaned column
     fill_color="YlOrRd",
     fill_opacity=0.7,
     line_opacity=0.3,
     legend_name="Castor Area (ha)",
 ).add_to(m)
 
-# Add tooltips (on hover show details)
-folium.GeoJsonTooltip(
-    fields=["VILLAGE", "TEHSIL", "DISTRICT", "STATE", "castor_ha"],
-    aliases=["Village:", "Tehsil:", "District:", "State:", "Castor Area (ha):"],
-    sticky=True
-).add_to(choropleth.geojson)
-
-# Highlight selected village on click
-highlight = folium.GeoJson(
+# ✅ Tooltip
+folium.GeoJson(
     gdf,
-    style_function=lambda x: {"fillColor": "transparent", "color": "blue", "weight": 2},
-    highlight_function=lambda x: {"weight": 4, "color": "red"},
+    style_function=lambda x: {"fillColor": "transparent", "color": "blue", "weight": 0.5},
     tooltip=folium.GeoJsonTooltip(
-        fields=["VILLAGE", "TEHSIL", "DISTRICT", "STATE", "castor_ha"],
+        fields=["VILLAGE", "TEHSIL", "DISTRICT", "STATE", "CASTOR_HA"],
         aliases=["Village:", "Tehsil:", "District:", "State:", "Castor Area (ha):"],
-    ),
+        sticky=True
+    )
 ).add_to(m)
 
-# Add Layer control
+# Layer control
 folium.LayerControl().add_to(m)
 
-# Save map
+# --- Save map to HTML ---
 m.save("castor_village_map.html")
+print("✅ Map saved as castor_village_map.html")
