@@ -14,20 +14,22 @@ center = [gdf.geometry.centroid.y.mean(), gdf.geometry.centroid.x.mean()]
 
 # Create folium map
 m = folium.Map(location=center, zoom_start=7, tiles="CartoDB positron")
+# Convert GeoDataFrame to GeoJSON
+gdf_json = gdf.to_json()
 
 # Choropleth map based on castor_ha
 choropleth = folium.Choropleth(
-    geo_data=gdf,
+    geo_data=gdf_json,
     name="Castor Acreage",
     data=gdf,
     columns=["VILLAGE", "castor_ha"],
-    key_on="feature.properties.VILLAGE",
-    fill_color="YlGnBu",
+    key_on="feature.properties.VILLAGE",  # must match property name in GeoJSON
+    fill_color="YlOrRd",
     fill_opacity=0.7,
     line_opacity=0.3,
     legend_name="Castor Area (ha)",
-    highlight=True
 ).add_to(m)
+
 
 # Add tooltips (hover info)
 GeoJsonTooltip(
