@@ -9,7 +9,7 @@ import branca.colormap as cm
 # --------------------
 @st.cache_data
 def load_data():
-    gdf = gpd.read_file("castor_villages.shp")
+    gdf = gpd.read_file("castor_village_level_acreage_ha.shp")
     gdf = gdf.to_crs(epsg=4326)  # ensure lat/lon
     return gdf
 
