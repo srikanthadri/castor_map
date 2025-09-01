@@ -1,49 +1,49 @@
 import streamlit as st
+import geopandas as gpd
 import folium
-import geopandas as gpd
 from streamlit_folium import st_folium
+import json
 
-# Load shapefile
-import geopandas as gpd
+st.set_page_config(layout="wide")
+st.title("Village-level Castor Area Map")
 
-# If your shapefile is named like this:
-shapefile_path = "castor_village_level_acreage_ha.shp"
-
-# Correctly load the shapefile
+# --- Load shapefile ---
+shapefile_path = "village_data.shp"  # change path if needed
 gdf = gpd.read_file(shapefile_path)
 
+# --- Debug: check field names ---
+props = json.loads(gdf.to_json())["features"][0]["properties"]
+st.write("Available properties in GeoJSON:", props.keys())
 
-# Convert to GeoJSON string
-gdf_json = gdf.to_json()
+# --- Ensure column is numeric ---
+gdf["castor_ha"] = gdf["castor_ha"].astype(float)
 
-# Create Folium Map
-m = folium.Map(location=[20.5937, 78.9629], zoom_start=5)
+# --- Create Folium map ---
+m = folium.Map(location=[20, 78], zoom_start=6, tiles="cartodbpositron")
 
-# Add Choropleth
-choropleth = folium.Choropleth(
-    geo_data=gdf.__geo_interface__,
+# Choropleth (use lowercase 'village' if fields are converted)
+folium.Choropleth(
+    geo_data=gdf.to_json(),
+    name="Castor Area",
     data=gdf,
-    columns=["VILLAGE", "castor_ha"],
-    key_on="feature.properties.VILLAGE",  # ✅ fixed
+    columns=["VILLAGE", "castor_ha"],  # keep uppercase here (matches shapefile column name)
+    key_on="feature.properties.village",  # 🔑 lowercase fix
     fill_color="YlGn",
     fill_opacity=0.7,
     line_opacity=0.2,
-    legend_name="Castor Acreage (ha)"
+    legend_name="Castor Area (ha)"
 ).add_to(m)
-
 
 # Add tooltips
 folium.GeoJson(
-    gdf_json,
-    name="Labels",
+    gdf,
+    style_function=lambda x: {"fillColor": "transparent", "color": "black", "weight": 0.5},
     tooltip=folium.GeoJsonTooltip(
-        fields=["VILLAGE", "TEHSIL", "DISTRICT", "STATE", "castor_ha"],
-        aliases=["Village:", "Tehsil:", "District:", "State:", "Castor Area (ha):"],
+        fields=["VILLAGE", "TEHSIL", "DISTRICT", "castor_ha"],
+        aliases=["Village:", "Tehsil:", "District:", "Castor Area (ha):"],
         localize=True
     )
 ).add_to(m)
 
-# Render map in Streamlit
-st.title("Castor Area by Village")
-st_folium(m, width=900, height=600)
-
+# Show map in Streamlit
+st_folium(m, width=1000, height=700)
