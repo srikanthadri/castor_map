@@ -20,17 +20,17 @@ gdf_json = gdf.to_json()
 m = folium.Map(location=[20.5937, 78.9629], zoom_start=5)
 
 # Add Choropleth
-folium.Choropleth(
-    geo_data=gdf_json,
-    name="Castor Hectares",
+choropleth = folium.Choropleth(
+    geo_data=gdf.__geo_interface__,
     data=gdf,
-    columns=["VILLAGE", "castor_ha"],   # joining field and values
-    key_on="feature.properties.VILLAGE",  # join key in GeoJSON
-    fill_color="YlGnBu",
+    columns=["VILLAGE", "castor_ha"],
+    key_on="feature.properties.VILLAGE",  # ✅ fixed
+    fill_color="YlGn",
     fill_opacity=0.7,
     line_opacity=0.2,
-    legend_name="Castor Area (ha)"
+    legend_name="Castor Acreage (ha)"
 ).add_to(m)
+
 
 # Add tooltips
 folium.GeoJson(
