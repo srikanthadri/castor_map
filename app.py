@@ -53,7 +53,7 @@ m = folium.Map(location=[filtered_gdf.geometry.centroid.y.mean(),
 
 # Color scale based on "castor_ha"
 min_val, max_val = filtered_gdf["castor_ha"].min(), filtered_gdf["castor_ha"].max()
-colormap = cm.LinearColormap(colors=['yellow', 'orange', 'red'],
+colormap = cm.LinearColormap(colors=['yellow', 'green', 'darkgreen'],
                              vmin=min_val, vmax=max_val)
 colormap.caption = "Castor (ha)"
 colormap.add_to(m)
