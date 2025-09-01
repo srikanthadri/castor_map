@@ -8,7 +8,7 @@ st.set_page_config(layout="wide")
 st.title("Village-level Castor Area Map")
 
 # --- Load shapefile ---
-shapefile_path = "castor_village_level_acreage_ha.shp.shp"  # change path if needed
+shapefile_path = "castor_village_level_acreage_ha.shp"  # change path if needed
 gdf = gpd.read_file(shapefile_path)
 
 # --- Debug: check field names ---
