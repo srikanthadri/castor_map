@@ -1,69 +1,91 @@
+
 import streamlit as st
 import geopandas as gpd
 import folium
 from streamlit_folium import st_folium
-import matplotlib.cm as cm
-import matplotlib.colors as colors
+import branca.colormap as cm
 
 # Load shapefile
-shapefile_path = r"castor_village_level_acreage_ha.shp"
+shapefile_path = "castor_village_level_acreage_ha.shp"
 gdf = gpd.read_file(shapefile_path)
 
-# Drop rows with missing TEHSIL or VILLAGE to avoid NoneType errors
-gdf = gdf.dropna(subset=["TEHSIL", "VILLAGE"])
-
-st.title("Tehsil & Village Dashboard")
+st.title("Castor Crop Dashboard")
 
 # Sidebar filters
-tehsil_options = ["All"] + sorted(gdf["TEHSIL"].unique().tolist())
-selected_tehsil = st.sidebar.selectbox("Select Tehsil", tehsil_options)
+tehsils = ["All"] + sorted(gdf["TEHSIL"].dropna().unique().tolist())
+selected_tehsil = st.sidebar.selectbox("Select Tehsil", tehsils)
 
 if selected_tehsil == "All":
+    villages = ["All"] + sorted(gdf["VILLAGE"].dropna().unique().tolist())
     filtered_gdf = gdf
 else:
+    villages = ["All"] + sorted(
+        gdf[gdf["TEHSIL"] == selected_tehsil]["VILLAGE"].dropna().unique().tolist()
+    )
     filtered_gdf = gdf[gdf["TEHSIL"] == selected_tehsil]
 
-village_options = ["All"] + sorted(filtered_gdf["VILLAGE"].unique().tolist())
-selected_village = st.sidebar.selectbox("Select Village", village_options)
+selected_village = st.sidebar.selectbox("Select Village", villages)
 
-# Base map (zoom on filtered area)
-if not filtered_gdf.empty:
-    center = filtered_gdf.geometry.centroid.unary_union.centroid.coords[0][::-1]
-    m = folium.Map(location=center, zoom_start=10)
-else:
-    m = folium.Map(location=[20.5937, 78.9629], zoom_start=5)
+# Legend colormap
+colormap = cm.linear.YlGnBu_09.scale(
+    gdf["castor_ha"].min(), gdf["castor_ha"].max()
+)
+colormap.caption = "Castor Area (ha)"
 
-# Color map for castor_ha
-min_val, max_val = gdf["castor_ha"].min(), gdf["castor_ha"].max()
-colormap = cm.ScalarMappable(norm=colors.Normalize(vmin=min_val, vmax=max_val), cmap="YlOrRd")
+# Base map centered on district
+m = folium.Map(location=[gdf.geometry.centroid.y.mean(), gdf.geometry.centroid.x.mean()], zoom_start=9)
 
-# Add polygons
+# Plot all polygons with choropleth style
 for _, row in filtered_gdf.iterrows():
-    color = colors.to_hex(colormap.to_rgba(row["castor_ha"]))
     folium.GeoJson(
         row["geometry"],
-        style_function=lambda feature, color=color: {
-            "fillColor": color,
-            "color": "black" if row["VILLAGE"] == selected_village else "gray",
-            "weight": 3 if row["VILLAGE"] == selected_village else 1,
-            "fillOpacity": 0.7,
+        style_function=lambda feature, value=row["castor_ha"]: {
+            "fillColor": colormap(value) if value is not None else "gray",
+            "color": "black",
+            "weight": 0.8,
+            "fillOpacity": 0.6,
         },
         tooltip=folium.Tooltip(
             f"Village: {row['VILLAGE']}<br>Tehsil: {row['TEHSIL']}<br>Castor (ha): {row['castor_ha']}"
         ),
     ).add_to(m)
 
-# Add legend colorbar
-from branca.colormap import LinearColormap
-linear = LinearColormap(
-    colors=["#ffffb2","#fecc5c","#fd8d3c","#f03b20","#bd0026"],
-    vmin=min_val, vmax=max_val,
-    caption="Castor Area (ha)"
-)
-linear.add_to(m)
+# Highlight selected village
+if selected_village != "All":
+    village_gdf = filtered_gdf[filtered_gdf["VILLAGE"] == selected_village]
+    if not village_gdf.empty:
+        folium.GeoJson(
+            village_gdf.geometry,
+            style_function=lambda x: {
+                "fillColor": "red",
+                "color": "red",
+                "weight": 3,
+                "fillOpacity": 0.4,
+            },
+            tooltip=folium.Tooltip(
+                f"<b>Village:</b> {selected_village}<br>"
+                f"<b>Castor Area:</b> {village_gdf['castor_ha'].values[0]} ha<br>"
+                f"<b>Shape Area:</b> {village_gdf['Shape_Area'].values[0]:,.2f}"
+            ),
+        ).add_to(m)
+
+        # Zoom to selected village
+        bounds = village_gdf.total_bounds
+        m.fit_bounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]])
+
+        # Sidebar info panel
+        st.sidebar.markdown("### Village Information")
+        st.sidebar.write(f"**Village:** {selected_village}")
+        st.sidebar.write(f"**Tehsil:** {selected_tehsil}")
+        st.sidebar.write(f"**Castor Area (ha):** {village_gdf['castor_ha'].values[0]}")
+        st.sidebar.write(f"**Shape Area:** {village_gdf['Shape_Area'].values[0]:,.2f}")
+
+# Add legend
+colormap.add_to(m)
 
 # Show map
 st_folium(m, width=800, height=600)
+
 
 
 
