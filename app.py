@@ -131,3 +131,16 @@ if village_info:
     st.sidebar.subheader("Village Information")
     for k, v in village_info.items():
         st.sidebar.write(f"**{k}:** {v}")
+
+# ----------------------------
+# Download CSV button
+# ----------------------------
+csv_data = gdf[["DISTRICT", "TEHSIL", "VILLAGE", "castor_ha"]].copy()
+csv = csv_data.to_csv(index=False)
+
+st.sidebar.download_button(
+    label="📥 Download District Data (CSV)",
+    data=csv,
+    file_name="banaskantha_castor_acreage.csv",
+    mime="text/csv"
+)
