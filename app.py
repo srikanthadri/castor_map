@@ -1,10 +1,8 @@
-
 import streamlit as st
 import geopandas as gpd
 import folium
 from folium.features import GeoJsonTooltip
 from streamlit_folium import st_folium
-import matplotlib.pyplot as plt
 import branca.colormap as cm
 
 # ----------------------------
@@ -17,6 +15,11 @@ def load_data():
     return gdf
 
 gdf = load_data()
+
+# ----------------------------
+# Title
+# ----------------------------
+st.title("🌱 BANAS KANTHA District - Castor Crop Acreage Dashboard")
 
 # ----------------------------
 # Sidebar filters
@@ -55,7 +58,7 @@ m = folium.Map(location=[filtered_gdf.geometry.centroid.y.mean(),
 min_val, max_val = filtered_gdf["castor_ha"].min(), filtered_gdf["castor_ha"].max()
 colormap = cm.LinearColormap(colors=['yellow', 'darkgreen'],
                              vmin=min_val, vmax=max_val)
-colormap.caption = "Castor (ha)"
+colormap.caption = "Castor Area (ha)"
 colormap.add_to(m)
 
 # Add polygons
@@ -92,22 +95,4 @@ folium.GeoJson(
 # ----------------------------
 # Show map
 # ----------------------------
-st_data = st_folium(m, width=900, height=600)
-
-# ----------------------------
-# Show selected village details
-# ----------------------------
-if selected_village != "All":
-    selected_row = filtered_gdf[filtered_gdf["VILLAGE"] == selected_village]
-    if not selected_row.empty:
-        ha_value = selected_row["castor_ha"].values[0]
-        st.sidebar.subheader("Village Info")
-        st.sidebar.write(f"**Village:** {selected_village}")
-        st.sidebar.write(f"**Tehsil:** {selected_row['TEHSIL'].values[0]}")
-        st.sidebar.write(f"**Castor area (ha):** {ha_value}")
-
-
-
-
-
-
+st_data = st_folium(m,
