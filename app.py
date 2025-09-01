@@ -4,7 +4,7 @@ import folium
 from streamlit_folium import st_folium
 
 # ---- Load shapefile ----
-shapefile_path = r"D:\your_shapefile_folder\your_file.shp"
+shapefile_path = r"castor_village_level_acreage_ha.shp"
 gdf = gpd.read_file(shapefile_path)
 
 st.title("Village Dashboard - Castor Crop Area")
