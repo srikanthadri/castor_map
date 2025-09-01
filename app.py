@@ -4,8 +4,14 @@ import geopandas as gpd
 from streamlit_folium import st_folium
 
 # Load shapefile
-shapefile_path = "castor_village_level_acreage_ha.shp"   # change to your shapefile path
-gdf = ggpd.read_file("castor_village_level_acreage_ha.shp")pd.read_file(shapefile_path)
+import geopandas as gpd
+
+# If your shapefile is named like this:
+shapefile_path = "castor_village_level_acreage_ha.shp"
+
+# Correctly load the shapefile
+gdf = gpd.read_file(shapefile_path)
+
 
 # Convert to GeoJSON string
 gdf_json = gdf.to_json()
