@@ -162,20 +162,20 @@ if show_suggested and not suggested_gdf.empty:
         name="Suggested Locations",
     ).add_to(m)
 
-    # Add centroid points matching polygon color
-    for _, row in filtered_polygons.iterrows():
-        centroid = row.geometry.centroid
-        color = "green" if row["id"] <= 10 else "red"
-        if (color == "green" and show_suggested) or (color == "red" and show_existing):
-            folium.CircleMarker(
-                location=[centroid.y, centroid.x],
-                radius=6,
-                color=color,
-                fill=True,
-                fill_color=color,
-                fill_opacity=0.9,
-                popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
-            ).add_to(m)
+    # # Add centroid points matching polygon color
+    # for _, row in filtered_polygons.iterrows():
+    #     centroid = row.geometry.centroid
+    #     color = "green" if row["id"] <= 10 else "red"
+    #     if (color == "green" and show_suggested) or (color == "red" and show_existing):
+    #         folium.CircleMarker(
+    #             location=[centroid.y, centroid.x],
+    #             radius=4,
+    #             color=color,
+    #             fill=True,
+    #             fill_color=color,
+    #             fill_opacity=0.6,
+    #             popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
+    #         ).add_to(m)
 
 for _, row in filtered_polygons.iterrows():
     centroid = row.geometry.centroid
