@@ -135,8 +135,8 @@ folium.GeoJson(
 loc_gdf = load_location_polygons()
 
 # Separate existing vs suggested locations
-existing_gdf = loc_gdf[loc_gdf["ID"] > 10]
-suggested_gdf = loc_gdf[loc_gdf["ID"] <= 10]
+existing_gdf = loc_gdf[loc_gdf["id"] > 10]
+suggested_gdf = loc_gdf[loc_gdf["id"] <= 10]
 
 def style_location(feature, color):
     return {
@@ -151,8 +151,8 @@ folium.GeoJson(
     existing_gdf,
     style_function=lambda x: style_location(x, "green"),
     tooltip=GeoJsonTooltip(
-        fields=["ID", "acreage"],
-        aliases=["Location ID:", "Acreage (ha):"],
+        fields=["id", "acreage"],
+        aliases=["Location id:", "Acreage (ha):"],
         localize=True,
     ),
     name="Existing Locations",
@@ -163,8 +163,8 @@ folium.GeoJson(
     suggested_gdf,
     style_function=lambda x: style_location(x, "red"),
     tooltip=GeoJsonTooltip(
-        fields=["ID", "acreage"],
-        aliases=["Location ID:", "Acreage (ha):"],
+        fields=["id", "acreage"],
+        aliases=["Location id:", "Acreage (ha):"],
         localize=True,
     ),
     name="Suggested Locations",
