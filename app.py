@@ -6,7 +6,7 @@ from streamlit_folium import st_folium
 import branca.colormap as cm
 
 # ----------------------------
-# Load shapefiles
+# Load shapefiles 
 # ----------------------------
 @st.cache_data
 def load_data():
