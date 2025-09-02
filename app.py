@@ -14,7 +14,9 @@ def load_data():
     gdf = gdf.to_crs(epsg=4326)
     return gdf
 
-@st.cache_data
+
+gdf_points = load_suggested_points()
+@st.cache_data(ttl=0)  # disables long-term caching
 def load_points():
     points = gpd.read_file(r"shp//points_suggested.shp")  # point shapefile
     points = points.to_crs(epsg=4326)
