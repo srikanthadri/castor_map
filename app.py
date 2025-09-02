@@ -211,9 +211,13 @@ for _, row in filtered_polygons.iterrows():
     
     # Check layer toggle
     if (color == "green" and show_suggested) or (color == "red" and show_existing):
-        folium.Marker(
+        folium.CircleMarker(
             location=[centroid.y, centroid.x],
-            icon=folium.Icon(color=color, icon="map-marker", prefix="fa"),  # FontAwesome pin
+            radius=5,  # smaller size
+            color=color,
+            fill=True,
+            fill_color=color,
+            fill_opacity=0.7,
             popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
         ).add_to(m)
 
