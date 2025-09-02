@@ -168,68 +168,86 @@ if show_suggested and not suggested_gdf.empty:
         name="Suggested Locations",
     ).add_to(m)
 
-# ============================
-# Add polygon centroids & points with color & labels
-# ============================
-def add_markers(gdf_layer):
-    for _, row in gdf_layer.iterrows():
-        color = "green" if row["id"] <= 10 else "red"
-        if (color == "green" and show_suggested) or (color == "red" and show_existing):
-            # Circle marker
-            folium.CircleMarker(
-                location=[row.geometry.centroid.y, row.geometry.centroid.x] if gdf_layer.equals(filtered_polygons) else [row.geometry.y, row.geometry.x],
-                radius=4,
-                color=color,
-                fill=True,
-                fill_color=color,
-                fill_opacity=0.7,
-                popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
-            ).add_to(m)
-
-            # DivIcon label
-            folium.Marker(
-                location=[row.geometry.centroid.y, row.geometry.centroid.x] if gdf_layer.equals(filtered_polygons) else [row.geometry.y, row.geometry.x],
-                icon=folium.DivIcon(
-                    html=f"""
-                    <div style="
-                        display: inline-block;
-                        font-size: 10px; 
-                        color: black; 
-                        font-weight: bold; 
-                        text-align: center; 
-                        line-height: 1.2; 
-                        padding: 3px 5px; 
-                        background-color: white; 
-                        border-radius: 2px;
-                        box-sizing: border-box;">
-                        ID: {row['id']}<br>{row['acreage']}ha
-                    </div>
-                    """
-                )
-            ).add_to(m)
-
+# -------------------
 # Add polygon centroids
-add_markers(filtered_polygons)
+# -------------------
+for _, row in filtered_polygons.iterrows():
+    color = "green" if row["id"] <= 10 else "red"
+    if (color == "green" and show_suggested) or (color == "red" and show_existing):
+        y, x = row.geometry.centroid.y, row.geometry.centroid.x
+        # Circle marker
+        folium.CircleMarker(
+            location=[y, x],
+            radius=4,
+            color=color,
+            fill=True,
+            fill_color=color,
+            fill_opacity=0.7,
+            popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
+        ).add_to(m)
+        # DivIcon label
+        folium.Marker(
+            location=[y, x],
+            icon=folium.DivIcon(
+                html=f"""
+                <div style="
+                    display: inline-block;
+                    font-size: 10px; 
+                    color: black; 
+                    font-weight: bold; 
+                    text-align: center; 
+                    line-height: 1.2; 
+                    padding: 3px 5px; 
+                    background-color: white; 
+                    border-radius: 2px;
+                    box-sizing: border-box;">
+                    ID: {row['id']}<br>{row['acreage']}ha
+                </div>
+                """
+            )
+        ).add_to(m)
 
+# -------------------
 # Add points from point shapefile
-add_markers(filtered_points)
+# -------------------
+for _, row in filtered_points.iterrows():
+    if row.geometry is None or row.geometry.is_empty:
+        continue
+    color = "green" if row["id"] <= 10 else "red"
+    if (color == "green" and show_suggested) or (color == "red" and show_existing):
+        y, x = row.geometry.y, row.geometry.x
+        # Circle marker for points
+        folium.CircleMarker(
+            location=[y, x],
+            radius=4,
+            color=color,
+            fill=True,
+            fill_color=color,
+            fill_opacity=0.7,
+            popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
+        ).add_to(m)
+        # DivIcon label for points
+        folium.Marker(
+            location=[y, x],
+            icon=folium.DivIcon(
+                html=f"""
+                <div style="
+                    display: inline-block;
+                    font-size: 10px; 
+                    color: black; 
+                    font-weight: bold; 
+                    text-align: center; 
+                    line-height: 1.2; 
+                    padding: 3px 5px; 
+                    background-color: white; 
+                    border-radius: 2px;
+                    box-sizing: border-box;">
+                    ID: {row['id']}<br>{row['acreage']}ha
+                </div>
+                """
+            )
+        ).add_to(m)
 
-# ============================
-# Map legend on top-left
-# ============================
-legend_html = """
-<div style="position: fixed; 
-     top: 100px; left: 20px; width: 180px; height: 120px; 
-     border:2px solid grey; z-index:9999; font-size:14px;
-     background-color:white; padding: 10px; line-height:1.3;">
-<b>Legend</b><br>
-🟩 Suggested Locations<br>
-🟥 Existing Locations<br>
-🔵 Polygon Centroids<br>
-🔹 Points
-</div>
-"""
-m.get_root().html.add_child(folium.Element(legend_html))
 
 # ============================
 # Map -> Streamlit
