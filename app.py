@@ -36,7 +36,7 @@ def load_location_polygons():
 # ============================
 # App title
 # ============================
-st.title("🌱 BANAS KANTHA District - Location Dashboard")
+st.title("🌱 BANAS KANTHA District - Castor Crop Acreage Dashboard")
 
 gdf = load_villages()
 loc_gdf = load_location_polygons()
@@ -45,6 +45,18 @@ loc_gdf = load_location_polygons()
 # Sidebar filters
 # ============================
 st.sidebar.title("Filters")
+
+# Tehsil filter
+tehsils = ["All"] + sorted(gdf["TEHSIL"].dropna().unique().tolist())
+selected_tehsil = st.sidebar.selectbox("Select Tehsil", tehsils, index=0)
+
+# Village filter
+if selected_tehsil != "All":
+    villages = gdf.loc[gdf["TEHSIL"] == selected_tehsil, "VILLAGE"].dropna().unique().tolist()
+else:
+    villages = gdf["VILLAGE"].dropna().unique().tolist()
+villages = ["All"] + sorted(villages)
+selected_village = st.sidebar.selectbox("Select Village", villages, index=0)
 
 # Polygon filter
 all_ids = sorted([int(i) for i in loc_gdf["id"].unique().tolist()])
@@ -60,6 +72,19 @@ filtered_polygons = loc_gdf[loc_gdf["id"].isin(selected_ids)]
 st.sidebar.subheader("Polygon Layer Controls")
 show_existing = st.sidebar.checkbox("Show Existing Locations (Blue)", value=True)
 show_suggested = st.sidebar.checkbox("Show Suggested Locations (Red)", value=True)
+
+# ============================
+# Data filtering
+# ============================
+filtered_gdf = gdf.copy()
+if selected_tehsil != "All":
+    filtered_gdf = filtered_gdf[filtered_gdf["TEHSIL"] == selected_tehsil]
+
+# Villages touching polygons
+if not filtered_polygons.empty and "All" not in selected_raw:
+    filtered_gdf = gpd.sjoin(filtered_gdf, filtered_polygons, predicate="intersects")
+    filtered_gdf = filtered_gdf.drop_duplicates(subset="VILLAGE")
+    filtered_gdf = filtered_gdf.drop(columns=["index_right"], errors="ignore")
 
 # ============================
 # Map setup
@@ -84,7 +109,6 @@ if show_existing and not existing_gdf.empty:
         tooltip=GeoJsonTooltip(fields=["id", "acreage"], aliases=["Location ID:", "Acreage (ha):"]),
         name="Existing Locations",
     ).add_to(m)
-    # Add centroids
     for _, row in existing_gdf.iterrows():
         centroid = row.geometry.centroid
         folium.CircleMarker(
@@ -106,7 +130,6 @@ if show_suggested and not suggested_gdf.empty:
         tooltip=GeoJsonTooltip(fields=["id", "acreage"], aliases=["Location ID:", "Acreage (ha):"]),
         name="Suggested Locations",
     ).add_to(m)
-    # Add centroids
     for _, row in suggested_gdf.iterrows():
         centroid = row.geometry.centroid
         folium.CircleMarker(
@@ -119,7 +142,9 @@ if show_suggested and not suggested_gdf.empty:
             popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
         ).add_to(m)
 
-# Legend (simplified)
+# ============================
+# Map legend
+# ============================
 legend_html = """
 <div style="position: fixed; 
      top: 100px; left: 20px; width: 180px; height: 80px; 
@@ -132,17 +157,52 @@ legend_html = """
 """
 m.get_root().html.add_child(folium.Element(legend_html))
 
-# Display map
+# ============================
+# Map -> Streamlit
+# ============================
 st_data = st_folium(m, width=1000, height=650)
 
-# Optional: CSV download for filtered polygons
-if not filtered_polygons.empty:
-    st.sidebar.download_button(
-        "📥 Download Selected Locations (CSV)",
-        data=filtered_polygons.to_csv(index=False),
-        file_name="selected_locations.csv",
-        mime="text/csv",
-    )
+# ============================
+# Village info panel
+# ============================
+village_info = None
+if selected_village != "All":
+    sel_row = filtered_gdf[filtered_gdf["VILLAGE"] == selected_village]
+    if not sel_row.empty:
+        village_info = {
+            "Village": sel_row["VILLAGE"].values[0],
+            "Tehsil": sel_row["TEHSIL"].values[0],
+            "Castor Area (ha)": sel_row["castor_ha"].values[0],
+        }
+
+if village_info:
+    st.sidebar.subheader("Village Information")
+    for k, v in village_info.items():
+        st.sidebar.write(f"**{k}:** {v}")
+
+# ============================
+# Download CSVs
+# ============================
+csv_data = gdf[["DISTRICT", "TEHSIL", "VILLAGE", "castor_ha"]].copy()
+st.sidebar.download_button(
+    "📥 Download District Data (CSV)",
+    data=csv_data.to_csv(index=False),
+    file_name="banaskantha_castor_acreage.csv",
+    mime="text/csv",
+)
+
+for pid in selected_ids:
+    poly = loc_gdf[loc_gdf["id"] == pid]
+    villages_inside = gpd.sjoin(gdf, poly, predicate="intersects")
+    if not villages_inside.empty:
+        export_df = villages_inside[["VILLAGE", "TEHSIL", "castor_ha"]].copy()
+        st.sidebar.download_button(
+            f"📥 Download Villages (Polygon {pid})",
+            data=export_df.to_csv(index=False),
+            file_name=f"polygon_{pid}_villages.csv",
+            mime="text/csv",
+        )
+
 # import os
 # import glob
 # import streamlit as st
