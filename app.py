@@ -69,15 +69,23 @@ villages = ["All"] + sorted(villages)
 selected_village = st.sidebar.selectbox("Select Village", villages, index=0)
 
 # Polygon filter
-all_ids = sorted(loc_gdf["id"].unique().tolist())
-selected_ids = st.sidebar.multiselect(
+# Ensure IDs are integers
+all_ids = sorted([int(i) for i in loc_gdf["ID"].unique().tolist()])
+
+# Sidebar selection (keep "All" as string, rest as ints)
+selected_raw = st.sidebar.multiselect(
     "Select Location IDs", ["All"] + all_ids, default="All"
 )
 
-if "All" in selected_ids:
-    filtered_polygons = loc_gdf
+# Normalize selection
+if "All" in selected_raw:
+    selected_ids = all_ids
 else:
-    filtered_polygons = loc_gdf[loc_gdf["id"].isin(selected_ids)]
+    selected_ids = [int(i) for i in selected_raw]
+
+# Filter polygons
+filtered_polygons = loc_gdf[loc_gdf["ID"].isin(selected_ids)]
+
 
 # ============================
 # Data filtering
@@ -233,10 +241,7 @@ st.sidebar.download_button(
 # ============================
 # Download CSV per polygon
 # ============================
-if "All" in selected_ids:
-    ids_to_export = all_ids
-else:
-    ids_to_export = selected_ids
+ids_to_export = selected_ids
 
 for pid in ids_to_export:
     poly = loc_gdf[loc_gdf["id"] == pid]
