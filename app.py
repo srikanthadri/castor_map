@@ -170,12 +170,12 @@ for _, row in filtered_polygons.iterrows():
         # Small circle marker
         folium.CircleMarker(
             location=[centroid.y, centroid.x],
-            radius=5,  # small size
+            radius=4,  # small size
             color=color,
             fill=True,
             fill_color=color,
             fill_opacity=0.6,
-            popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
+            popup=f"ID: {row['id']}, Acreage: {row['acreage']}ha"
         ).add_to(m)
 
         # Label on top (tiny offset)
