@@ -188,12 +188,20 @@ for _, row in filtered_polygons.iterrows():
             location=[centroid.y, centroid.x],
             icon=folium.DivIcon(
                 html=f"""
-                <div style='font-size:12px; color:black; font-weight:bold; text-align:center; 
-                            white-space: nowrap; line-height:1.2;
-                            padding: 2px 4px; background-color:white; border-radius:3px;'>
-                    ID: {row['id']}<br>{row['acreage']} ha
-                </div>
-                """
+                <div style="
+                            display: inline-block;
+                            font-size: 12px; 
+                            color: black; 
+                            font-weight: bold; 
+                            text-align: center; 
+                            line-height: 1.2; 
+                            padding: 4px 6px; 
+                            background-color: white; 
+                            border-radius: 3px;
+                            box-sizing: border-box;">
+                            ID: {row['id']}<br>{row['acreage']} ha
+                        </div>
+
             )
         ).add_to(m)
 
