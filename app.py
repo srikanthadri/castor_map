@@ -210,9 +210,8 @@ legend_html = """
      background-color:white; padding: 10px; line-height:1.3;">
 
 <b>Legend</b><br>
-🟩 Suggested Locations<br>
-🟥 Existing Locations<br>
-🔵 Polygon Centroids
+🔴 Suggested Locations<br>
+🔵 Existing Locations
 </div>
 """
 m.get_root().html.add_child(folium.Element(legend_html))
