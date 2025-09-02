@@ -154,7 +154,7 @@ if show_existing and not existing_gdf.empty:
 if show_suggested and not suggested_gdf.empty:
     folium.GeoJson(
         suggested_gdf,
-        style_function=lambda x: style_location(x, "green"),
+        style_function=lambda x: style_location(x, "orange"),
         tooltip=GeoJsonTooltip(fields=["id", "acreage"], aliases=["Location ID:", "Acreage (ha):"]),
         name="Suggested Locations",
     ).add_to(m)
@@ -164,9 +164,9 @@ if show_suggested and not suggested_gdf.empty:
 # ============================
 for _, row in filtered_polygons.iterrows():
     centroid = row.geometry.centroid
-    color = "green" if row["id"] <= 10 else "blue"
+    color = "orange" if row["id"] <= 10 else "blue"
 
-    if (color == "green" and show_suggested) or (color == "blue" and show_existing):
+    if (color == "orange" and show_suggested) or (color == "blue" and show_existing):
         # Small circle marker
         folium.CircleMarker(
             location=[centroid.y, centroid.x],
@@ -348,7 +348,7 @@ for pid in selected_ids:
 # # ============================
 # st.sidebar.subheader("Polygon Layer Controls")
 # show_existing = st.sidebar.checkbox("Show Existing Locations (Red)", value=True)
-# show_suggested = st.sidebar.checkbox("Show Suggested Locations (Green)", value=True)
+# show_suggested = st.sidebar.checkbox("Show Suggested Locations (orange)", value=True)
 
 # # ============================
 # # Data filtering
