@@ -6,7 +6,7 @@ from streamlit_folium import st_folium
 import branca.colormap as cm
 
 # ----------------------------
-# Load shapefiles 
+# Load shapefiles
 # ----------------------------
 @st.cache_data
 def load_data():
@@ -14,11 +14,9 @@ def load_data():
     gdf = gdf.to_crs(epsg=4326)
     return gdf
 
-
-gdf_points = load_suggested_points()
-@st.cache_data(ttl=0)  # disables long-term caching
+@st.cache_data(ttl=0)  # disable long caching for points
 def load_points():
-    points = gpd.read_file(r"shp//points_suggested.shp")  # point shapefile
+    points = gpd.read_file(r"shp//points_suggested.shp")  # updated point shapefile
     points = points.to_crs(epsg=4326)
     return points
 
