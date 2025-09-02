@@ -178,7 +178,7 @@ for _, row in filtered_polygons.iterrows():
         ).add_to(m)
 
 # ============================
-# Add polygon labels (ID + Acreage) with proper alignment
+# Add polygon labels (ID + Acreage) with white buffer and bold text
 # ============================
 for _, row in filtered_polygons.iterrows():
     centroid = row.geometry.centroid
@@ -188,8 +188,9 @@ for _, row in filtered_polygons.iterrows():
             location=[centroid.y, centroid.x],
             icon=folium.DivIcon(
                 html=f"""
-                <div style='font-size:12px; color:black; text-align:center; 
-                            white-space: nowrap; line-height:1.2;'>
+                <div style='font-size:12px; color:black; font-weight:bold; text-align:center; 
+                            white-space: nowrap; line-height:1.2;
+                            padding: 2px 4px; background-color:white; border-radius:3px;'>
                     ID: {row['id']}<br>{row['acreage']} ha
                 </div>
                 """
@@ -197,11 +198,11 @@ for _, row in filtered_polygons.iterrows():
         ).add_to(m)
 
 # ============================
-# Map legend on top-left (adjusted position)
+# Map legend on top-left (adjusted to cover polygon centroids if needed)
 # ============================
 legend_html = """
 <div style="position: fixed; 
-     top: 80px; left: 20px; width: 160px; height: 90px; 
+     top: 60px; left: 20px; width: 180px; height: 100px; 
      border:2px solid grey; z-index:9999; font-size:14px;
      background-color:white; padding: 10px; line-height:1.3;">
 <b>Legend</b><br>
@@ -209,6 +210,8 @@ legend_html = """
 🟥 Existing Locations<br>
 🔵 Polygon Centroids
 </div>
+
+
 """
 m.get_root().html.add_child(folium.Element(legend_html))
 
