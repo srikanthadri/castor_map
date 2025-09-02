@@ -37,7 +37,7 @@ def load_villages():
 # ----------------------------
 @st.cache_data
 def load_location_polygons():
-    gdf_loc = gpd.read_file("shp/locations_polygons.shp")  # <-- your shapefile
+    gdf_loc = gpd.read_file("shp/polygons.shp")  # <-- your shapefile
     gdf_loc = gdf_loc.to_crs(epsg=4326)
     return gdf_loc
 
