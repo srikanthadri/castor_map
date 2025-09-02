@@ -70,7 +70,7 @@ selected_village = st.sidebar.selectbox("Select Village", villages, index=0)
 
 # Polygon filter
 # Ensure IDs are integers
-all_ids = sorted([int(i) for i in loc_gdf["ID"].unique().tolist()])
+all_ids = sorted([int(i) for i in loc_gdf["id"].unique().tolist()])
 
 # Sidebar selection (keep "All" as string, rest as ints)
 selected_raw = st.sidebar.multiselect(
@@ -84,7 +84,7 @@ else:
     selected_ids = [int(i) for i in selected_raw]
 
 # Filter polygons
-filtered_polygons = loc_gdf[loc_gdf["ID"].isin(selected_ids)]
+filtered_polygons = loc_gdf[loc_gdf["id"].isin(selected_ids)]
 
 
 # ============================
