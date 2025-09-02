@@ -199,7 +199,7 @@ for _, row in filtered_polygons.iterrows():
                     background-color: white; 
                     border-radius: 3px;
                     box-sizing: border-box;">
-                    ID: {row['id']}<br>{row['acreage']} ha
+                    ID: {row['id']}<br>{row['acreage']}ha
                 </div>
                 """
             )
