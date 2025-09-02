@@ -36,7 +36,7 @@ def load_location_polygons():
 
 @st.cache_data
 def load_points():
-    gdf_points = gpd.read_file("shp/points.shp")  # Replace with your points shapefile path
+    gdf_points = gpd.read_file("shp/points_suggested.shp")  # Replace with your points shapefile path
     gdf_points = gdf_points.to_crs(epsg=4326)
     return gdf_points
 
