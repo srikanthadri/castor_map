@@ -5,6 +5,7 @@ import geopandas as gpd
 import folium
 from folium.features import GeoJsonTooltip
 from streamlit_folium import st_folium
+import branca.colormap as cm
 
 st.set_page_config(layout="wide")
 
@@ -60,7 +61,7 @@ selected_village = st.sidebar.selectbox("Select Village", villages, index=0)
 
 # Polygon filter
 all_ids = sorted([int(i) for i in loc_gdf["id"].unique().tolist()])
-selected_raw = st.sidebar.multiselect("Select Location IDs", ["All"] + all_ids, default="All")
+selected_raw = st.sidebar.multiselect("Select Suggested Location IDs", ["All"] + all_ids, default="All")
 if "All" in selected_raw:
     selected_ids = all_ids
 else:
@@ -68,10 +69,12 @@ else:
 
 filtered_polygons = loc_gdf[loc_gdf["id"].isin(selected_ids)]
 
+# ============================
 # Polygon Layer Toggles
+# ============================
 st.sidebar.subheader("Polygon Layer Controls")
-show_existing = st.sidebar.checkbox("Show Existing Locations (Blue)", value=True)
-show_suggested = st.sidebar.checkbox("Show Suggested Locations (Red)", value=True)
+show_existing = st.sidebar.checkbox("Show Existing Locations (Red)", value=True)
+show_suggested = st.sidebar.checkbox("Show Suggested Locations (Green)", value=True)
 
 # ============================
 # Data filtering
@@ -89,57 +92,112 @@ if not filtered_polygons.empty and "All" not in selected_raw:
 # ============================
 # Map setup
 # ============================
-map_center = [filtered_polygons.geometry.centroid.y.mean(), filtered_polygons.geometry.centroid.x.mean()]
+if filtered_gdf.empty:
+    map_center = [gdf.geometry.centroid.y.mean(), gdf.geometry.centroid.x.mean()]
+else:
+    map_center = [filtered_gdf.geometry.centroid.y.mean(), filtered_gdf.geometry.centroid.x.mean()]
+
 m = folium.Map(location=map_center, zoom_start=9, tiles="CartoDB positron")
 
-# Function to style polygons
+# Color scale for castor_ha
+ha_series = filtered_gdf["castor_ha"].dropna()
+min_val, max_val = (0, 1) if ha_series.empty else (float(ha_series.min()), float(ha_series.max()))
+colormap = cm.LinearColormap(colors=["yellow", "darkgreen"], vmin=min_val, vmax=max_val)
+colormap.caption = f"Castor Area (ha) | Min: {min_val:.2f} | Max: {max_val:.2f}"
+colormap.add_to(m)
+
+# Village style
+def style_function(feature):
+    village_name = feature["properties"].get("VILLAGE")
+    ha_value = feature["properties"].get("castor_ha")
+    if selected_village != "All" and village_name == selected_village:
+        return {"fillColor": "blue", "color": "black", "weight": 3, "fillOpacity": 0.8}
+    else:
+        return {
+            "fillColor": colormap(ha_value) if ha_value is not None else "grey",
+            "color": "black",
+            "weight": 1,
+            "fillOpacity": 0.6,
+        }
+
+if not filtered_gdf.empty:
+    folium.GeoJson(
+        filtered_gdf,
+        style_function=style_function,
+        tooltip=GeoJsonTooltip(
+            fields=["VILLAGE", "TEHSIL", "castor_ha"],
+            aliases=["Village:", "Tehsil:", "Castor (ha):"],
+            localize=True,
+        ),
+        name="Villages",
+    ).add_to(m)
+
+# ============================
+# Polygons overlay
+# ============================
 def style_location(feature, color):
     return {"fillColor": color, "color": "black", "weight": 2, "fillOpacity": 0.5}
 
-# Separate existing and suggested polygons
 existing_gdf = filtered_polygons[filtered_polygons["id"] > 10]
 suggested_gdf = filtered_polygons[filtered_polygons["id"] <= 10]
 
-# Add Existing polygons and centroids
+# Existing polygons
 if show_existing and not existing_gdf.empty:
-    color = "#1f78b4"  # Blue
     folium.GeoJson(
         existing_gdf,
-        style_function=lambda x: style_location(x, color),
+        style_function=lambda x: style_location(x, "blue"),
         tooltip=GeoJsonTooltip(fields=["id", "acreage"], aliases=["Location ID:", "Acreage (ha):"]),
         name="Existing Locations",
     ).add_to(m)
-    for _, row in existing_gdf.iterrows():
-        centroid = row.geometry.centroid
-        folium.CircleMarker(
-            location=[centroid.y, centroid.x],
-            radius=5,
-            color=color,
-            fill=True,
-            fill_color=color,
-            fill_opacity=0.8,
-            popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
-        ).add_to(m)
 
-# Add Suggested polygons and centroids
+# Suggested polygons
 if show_suggested and not suggested_gdf.empty:
-    color = "#e31a1c"  # Red
     folium.GeoJson(
         suggested_gdf,
-        style_function=lambda x: style_location(x, color),
+        style_function=lambda x: style_location(x, "green"),
         tooltip=GeoJsonTooltip(fields=["id", "acreage"], aliases=["Location ID:", "Acreage (ha):"]),
         name="Suggested Locations",
     ).add_to(m)
-    for _, row in suggested_gdf.iterrows():
-        centroid = row.geometry.centroid
+
+# ============================
+# Add centroids with small markers + labels
+# ============================
+for _, row in filtered_polygons.iterrows():
+    centroid = row.geometry.centroid
+    color = "green" if row["id"] <= 10 else "blue"
+
+    if (color == "green" and show_suggested) or (color == "blue" and show_existing):
+        # Small circle marker
         folium.CircleMarker(
             location=[centroid.y, centroid.x],
-            radius=5,
+            radius=4,  # small size
             color=color,
             fill=True,
             fill_color=color,
-            fill_opacity=0.8,
+            fill_opacity=0.6,
             popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
+        ).add_to(m)
+
+        # Label on top (with small offset)
+        folium.Marker(
+            location=[centroid.y + 0.0001, centroid.x],  # tiny latitude offset
+            icon=folium.DivIcon(
+                html=f"""
+                <div style="
+                    display: inline-block;
+                    font-size: 10px; 
+                    color: black; 
+                    font-weight: bold; 
+                    text-align: center; 
+                    line-height: 1.2; 
+                    padding: 2px 4px; 
+                    background-color: white; 
+                    border-radius: 2px;
+                    box-sizing: border-box;">
+                    ID: {row['id']}<br>{row['acreage']} ha
+                </div>
+                """
+            )
         ).add_to(m)
 
 # ============================
@@ -147,12 +205,14 @@ if show_suggested and not suggested_gdf.empty:
 # ============================
 legend_html = """
 <div style="position: fixed; 
-     top: 100px; left: 20px; width: 180px; height: 80px; 
+     top: 100px; left: 20px; width: 180px; height: 100px; 
      border:2px solid grey; z-index:9999; font-size:14px;
      background-color:white; padding: 10px; line-height:1.3;">
+
 <b>Legend</b><br>
-🔵 Existing Location (Blue)<br>
-🟥 Suggested Location (Red)
+🟩 Suggested Locations<br>
+🟥 Existing Locations<br>
+🔵 Polygon Centroids
 </div>
 """
 m.get_root().html.add_child(folium.Element(legend_html))
@@ -166,7 +226,14 @@ st_data = st_folium(m, width=1000, height=650)
 # Village info panel
 # ============================
 village_info = None
-if selected_village != "All":
+if st_data and "last_active_drawing" in st_data and st_data["last_active_drawing"]:
+    props = st_data["last_active_drawing"]["properties"]
+    village_info = {
+        "Village": props.get("VILLAGE"),
+        "Tehsil": props.get("TEHSIL"),
+        "Castor Area (ha)": props.get("castor_ha"),
+    }
+elif selected_village != "All":
     sel_row = filtered_gdf[filtered_gdf["VILLAGE"] == selected_village]
     if not sel_row.empty:
         village_info = {
@@ -202,7 +269,6 @@ for pid in selected_ids:
             file_name=f"polygon_{pid}_villages.csv",
             mime="text/csv",
         )
-
 # import os
 # import glob
 # import streamlit as st
@@ -224,6 +290,7 @@ for pid in selected_ids:
 #         return 0.0
 #     return max(os.path.getmtime(f) for f in sidecars)
 
+
 # # ----------------------------
 # # Load shapefiles
 # # ----------------------------
@@ -239,8 +306,9 @@ for pid in selected_ids:
 #     gdf_loc = gdf_loc.to_crs(epsg=4326)
 #     return gdf_loc
 
+
 # # ============================
-# # App title
+# # App
 # # ============================
 # st.title("🌱 BANAS KANTHA District - Castor Crop Acreage Dashboard")
 
@@ -267,6 +335,7 @@ for pid in selected_ids:
 # # Polygon filter
 # all_ids = sorted([int(i) for i in loc_gdf["id"].unique().tolist()])
 # selected_raw = st.sidebar.multiselect("Select Suggested Location IDs", ["All"] + all_ids, default="All")
+
 # if "All" in selected_raw:
 #     selected_ids = all_ids
 # else:
@@ -274,10 +343,12 @@ for pid in selected_ids:
 
 # filtered_polygons = loc_gdf[loc_gdf["id"].isin(selected_ids)]
 
+# # ============================
 # # Polygon Layer Toggles
+# # ============================
 # st.sidebar.subheader("Polygon Layer Controls")
-# show_existing = st.sidebar.checkbox("Show Existing Locations (Blue)", value=True)
-# show_suggested = st.sidebar.checkbox("Show Suggested Locations (Red)", value=True)
+# show_existing = st.sidebar.checkbox("Show Existing Locations (Red)", value=True)
+# show_suggested = st.sidebar.checkbox("Show Suggested Locations (Green)", value=True)
 
 # # ============================
 # # Data filtering
@@ -314,7 +385,7 @@ for pid in selected_ids:
 #     village_name = feature["properties"].get("VILLAGE")
 #     ha_value = feature["properties"].get("castor_ha")
 #     if selected_village != "All" and village_name == selected_village:
-#         return {"fillColor": "#6a3d9a", "color": "black", "weight": 3, "fillOpacity": 0.8}  # purple highlight
+#         return {"fillColor": "blue", "color": "black", "weight": 3, "fillOpacity": 0.8}
 #     else:
 #         return {
 #             "fillColor": colormap(ha_value) if ha_value is not None else "grey",
@@ -335,7 +406,9 @@ for pid in selected_ids:
 #         name="Villages",
 #     ).add_to(m)
 
+# # ============================
 # # Polygons overlay
+# # ============================
 # def style_location(feature, color):
 #     return {"fillColor": color, "color": "black", "weight": 2, "fillOpacity": 0.5}
 
@@ -346,7 +419,7 @@ for pid in selected_ids:
 # if show_existing and not existing_gdf.empty:
 #     folium.GeoJson(
 #         existing_gdf,
-#         style_function=lambda x: style_location(x, "#1f78b4"),  # blue
+#         style_function=lambda x: style_location(x, "blue"),
 #         tooltip=GeoJsonTooltip(fields=["id", "acreage"], aliases=["Location ID:", "Acreage (ha):"]),
 #         name="Existing Locations",
 #     ).add_to(m)
@@ -355,68 +428,108 @@ for pid in selected_ids:
 # if show_suggested and not suggested_gdf.empty:
 #     folium.GeoJson(
 #         suggested_gdf,
-#         style_function=lambda x: style_location(x, "#e31a1c"),  # red
+#         style_function=lambda x: style_location(x, "green"),
 #         tooltip=GeoJsonTooltip(fields=["id", "acreage"], aliases=["Location ID:", "Acreage (ha):"]),
 #         name="Suggested Locations",
 #     ).add_to(m)
 
-# # Centroid points
+#     # # Add centroid points matching polygon color
+#     # for _, row in filtered_polygons.iterrows():
+#     #     centroid = row.geometry.centroid
+#     #     color = "green" if row["id"] <= 10 else "blue"
+#     #     if (color == "green" and show_suggested) or (color == "blue" and show_existing):
+#     #         folium.CircleMarker(
+#     #             location=[centroid.y, centroid.x],
+#     #             radius=4,
+#     #             color=color,
+#     #             fill=True,
+#     #             fill_color=color,
+#     #             fill_opacity=0.6,
+#     #             popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
+#     #         ).add_to(m)
+
+# # for _, row in filtered_polygons.iterrows():
+# #     centroid = row.geometry.centroid
+# #     color = "green" if row["id"] <= 10 else "blue"
+    
+# #     if (color == "green" and show_suggested) or (color == "blue" and show_existing):
+# #         # Small circle marker
+# #         folium.CircleMarker(
+# #             location=[centroid.y, centroid.x],
+# #             radius=2,  # smaller size
+# #             color=color,
+# #             fill=True,
+# #             fill_color=color,
+# #             fill_opacity=0.4,
+# #             popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
+# #         ).add_to(m)
+        
+# #         # Label on top
+# #         folium.Marker(
+# #             location=[centroid.y, centroid.x],
+# #             icon=folium.DivIcon(
+# #                 html=f"""
+# #                 <div style="
+# #                     display: inline-block;
+# #                     font-size: 10px; 
+# #                     color: black; 
+# #                     font-weight: bold; 
+# #                     text-align: center; 
+# #                     line-height: 1.2; 
+# #                     padding: 2px 4px; 
+# #                     background-color: white; 
+# #                     border-radius: 2px;
+# #                     box-sizing: border-box;">
+# #                     ID: {row['id']}<br>{row['acreage']} ha
+# #                 </div>
+# #                 """
+# #             )
+# #         ).add_to(m)
 # for _, row in filtered_polygons.iterrows():
 #     centroid = row.geometry.centroid
-#     color = "#ff7f00"  # orange for centroid points
-
-#     if (row["id"] <= 10 and show_suggested) or (row["id"] > 10 and show_existing):
+#     color = "green" if row["id"] <= 10 else "blue"
+    
+#     if (color == "green" and show_suggested) or (color == "blue" and show_existing):
 #         folium.CircleMarker(
 #             location=[centroid.y, centroid.x],
 #             radius=5,
 #             color=color,
 #             fill=True,
 #             fill_color=color,
-#             fill_opacity=0.8,
+#             fill_opacity=0.6,
 #             popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
 #         ).add_to(m)
 
-#         folium.Marker(
-#             location=[centroid.y + 0.0001, centroid.x],
-#             icon=folium.DivIcon(
-#                 html=f"""
-#                 <div style="
-#                     display: inline-block;
-#                     font-size: 10px; 
-#                     color: black; 
-#                     font-weight: bold; 
-#                     text-align: center; 
-#                     line-height: 1.2; 
-#                     padding: 2px 4px; 
-#                     background-color: white; 
-#                     border-radius: 2px;
-#                     box-sizing: border-box;">
-#                     ID: {row['id']}<br>{row['acreage']} ha
-#                 </div>
-#                 """
-#             )
-#         ).add_to(m)
 
-# # Map legend
+
+
+# # ============================
+# # Map legend on top-left (adjusted to cover polygon centroids if needed)
+# # ============================
 # legend_html = """
 # <div style="position: fixed; 
-#      top: 100px; left: 20px; width: 200px; height: 120px; 
+#      top: 100px; left: 20px; width: 180px; height: 100px; 
 #      border:2px solid grey; z-index:9999; font-size:14px;
 #      background-color:white; padding: 10px; line-height:1.3;">
+
 # <b>Legend</b><br>
-# 🟩 Castor Area (Colorbar: Yellow → Green)<br>
-# 🔵 Existing Polygon (Blue)<br>
-# 🟥 Suggested Polygon (Red)<br>
-# 🟠 Centroids (Orange)<br>
-# 🟣 Selected Village (Purple)
+# 🟩 Suggested Locations<br>
+# 🟥 Existing Locations<br>
+# 🔵 Polygon Centroids
 # </div>
+
+
 # """
 # m.get_root().html.add_child(folium.Element(legend_html))
 
+# # ============================
 # # Map -> Streamlit
+# # ============================
 # st_data = st_folium(m, width=1000, height=650)
 
+# # ============================
 # # Village info panel
+# # ============================
 # village_info = None
 # if st_data and "last_active_drawing" in st_data and st_data["last_active_drawing"]:
 #     props = st_data["last_active_drawing"]["properties"]
@@ -439,7 +552,9 @@ for pid in selected_ids:
 #     for k, v in village_info.items():
 #         st.sidebar.write(f"**{k}:** {v}")
 
+# # ============================
 # # Download CSVs
+# # ============================
 # csv_data = gdf[["DISTRICT", "TEHSIL", "VILLAGE", "castor_ha"]].copy()
 # st.sidebar.download_button(
 #     "📥 Download District Data (CSV)",
