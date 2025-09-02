@@ -95,9 +95,53 @@ if selected_tehsil != "All":
     filtered_gdf = filtered_gdf[filtered_gdf["TEHSIL"] == selected_tehsil]
 
 # Filter villages that fall inside selected polygons
-if not filtered_polygons.empty and "All" not in selected_ids:
-    # Keep villages that intersect polygons (touch or overlap)
-    filtered_gdf = gpd.sjoin(filtered_gdf, filtered_polygons, predicate="intersects")
+# Villages layer
+if not filtered_gdf.empty:
+    folium.GeoJson(
+        filtered_gdf,
+        style_function=style_function,
+        tooltip=tooltip,
+        name="Villages",
+    ).add_to(m)
+
+# Existing locations (green)
+if not existing_gdf.empty:
+    folium.GeoJson(
+        existing_gdf,
+        style_function=lambda x: style_location(x, "green"),
+        tooltip=GeoJsonTooltip(
+            fields=["id", "acreage"],
+            aliases=["Location ID:", "Acreage (ha):"],
+            localize=True,
+        ),
+        name="Existing Locations",
+    ).add_to(m)
+
+# Suggested locations (red)
+if not suggested_gdf.empty:
+    folium.GeoJson(
+        suggested_gdf,
+        style_function=lambda x: style_location(x, "red"),
+        tooltip=GeoJsonTooltip(
+            fields=["id", "acreage"],
+            aliases=["Location ID:", "Acreage (ha):"],
+            localize=True,
+        ),
+        name="Suggested Locations",
+    ).add_to(m)
+
+# Add acreage labels
+for _, row in filtered_polygons.iterrows():
+    if not row.geometry.is_empty:
+        centroid = row.geometry.centroid
+        folium.Marker(
+            location=[centroid.y, centroid.x],
+            icon=folium.DivIcon(
+                html=f"""<div style="font-size:12px; color:black; text-align:center;">
+                         {row['acreage']} ha</div>"""
+            ),
+        ).add_to(m)
+
 # ============================
 # Map
 # ============================
