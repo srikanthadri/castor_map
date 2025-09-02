@@ -162,35 +162,38 @@ if show_suggested and not suggested_gdf.empty:
 # ============================
 # Add centroids with small markers + labels
 # ============================
+# ============================
+# Add centroids with improved visibility
+# ============================
 for _, row in filtered_polygons.iterrows():
     centroid = row.geometry.centroid
     color = "red" if row["id"] <= 10 else "blue"  # match legend colors
 
     if (color == "red" and show_suggested) or (color == "blue" and show_existing):
-        # Small circle marker
+        # Larger circle marker for better visibility
         folium.CircleMarker(
             location=[centroid.y, centroid.x],
-            radius=4,  # small size
+            radius=7,  # increased from 5
             color=color,
             fill=True,
             fill_color=color,
-            fill_opacity=0.6,
-            popup=f"ID: {row['id']}, Acreage: {row['acreage']}ha"
+            fill_opacity=0.8,  # more visible
+            popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
         ).add_to(m)
 
-        # Label on top (tiny offset)
+        # Smaller label on top
         folium.Marker(
             location=[centroid.y + 0.0001, centroid.x],
             icon=folium.DivIcon(
                 html=f"""
                 <div style="
                     display: inline-block;
-                    font-size: 10px; 
+                    font-size: 8px;  /* decreased font size */
                     color: black; 
                     font-weight: bold; 
                     text-align: center; 
-                    line-height: 1.2; 
-                    padding: 2px 4px; 
+                    line-height: 1; 
+                    padding: 1px 3px; 
                     background-color: white; 
                     border-radius: 2px;
                     box-sizing: border-box;">
@@ -199,6 +202,7 @@ for _, row in filtered_polygons.iterrows():
                 """
             )
         ).add_to(m)
+
 
 # ============================
 # Map legend
