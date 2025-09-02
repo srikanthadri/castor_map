@@ -33,11 +33,11 @@ def load_villages():
 
 
 # ----------------------------
-# Load location polygons (instead of points/buffers)
+# Load location polygons
 # ----------------------------
 @st.cache_data
 def load_location_polygons():
-    gdf_loc = gpd.read_file("shp/polygons.shp")  # <-- your shapefile
+    gdf_loc = gpd.read_file("shp/locations_polygons.shp")  # <-- your shapefile
     gdf_loc = gdf_loc.to_crs(epsg=4326)
     return gdf_loc
 
@@ -47,8 +47,9 @@ def load_location_polygons():
 # ============================
 st.title("🌱 BANAS KANTHA District - Castor Crop Acreage Dashboard")
 
-# Load villages
+# Load data
 gdf = load_villages()
+loc_gdf = load_location_polygons()
 
 # ============================
 # Sidebar filters
@@ -67,10 +68,16 @@ else:
 villages = ["All"] + sorted(villages)
 selected_village = st.sidebar.selectbox("Select Village", villages, index=0)
 
-# Optional refresh
-if st.sidebar.button("🔄 Refresh Data (clear cache)"):
-    st.cache_data.clear()
-    st.experimental_rerun()
+# Polygon filter
+all_ids = sorted(loc_gdf["ID"].unique().tolist())
+selected_ids = st.sidebar.multiselect(
+    "Select Location IDs", ["All"] + all_ids, default="All"
+)
+
+if "All" in selected_ids:
+    filtered_polygons = loc_gdf
+else:
+    filtered_polygons = loc_gdf[loc_gdf["ID"].isin(selected_ids)]
 
 # ============================
 # Data filtering
@@ -78,6 +85,10 @@ if st.sidebar.button("🔄 Refresh Data (clear cache)"):
 filtered_gdf = gdf
 if selected_tehsil != "All":
     filtered_gdf = filtered_gdf[filtered_gdf["TEHSIL"] == selected_tehsil]
+
+# Filter villages that fall inside selected polygons
+if not filtered_polygons.empty and "All" not in selected_ids:
+    filtered_gdf = gpd.sjoin(filtered_gdf, filtered_polygons, predicate="within")
 
 # ============================
 # Map
@@ -130,14 +141,8 @@ folium.GeoJson(
 ).add_to(m)
 
 # ============================
-# Location polygons overlay
+# Location polygons overlay (filtered)
 # ============================
-loc_gdf = load_location_polygons()
-
-# Separate existing vs suggested locations
-existing_gdf = loc_gdf[loc_gdf["id"] > 10]
-suggested_gdf = loc_gdf[loc_gdf["id"] <= 10]
-
 def style_location(feature, color):
     return {
         "fillColor": color,
@@ -146,13 +151,16 @@ def style_location(feature, color):
         "fillOpacity": 0.5,
     }
 
+existing_gdf = filtered_polygons[filtered_polygons["ID"] > 10]
+suggested_gdf = filtered_polygons[filtered_polygons["ID"] <= 10]
+
 # Existing locations (green)
 folium.GeoJson(
     existing_gdf,
     style_function=lambda x: style_location(x, "green"),
     tooltip=GeoJsonTooltip(
-        fields=["id", "acreage"],
-        aliases=["Location id:", "Acreage (ha):"],
+        fields=["ID", "acreage"],
+        aliases=["Location ID:", "Acreage (ha):"],
         localize=True,
     ),
     name="Existing Locations",
@@ -163,15 +171,15 @@ folium.GeoJson(
     suggested_gdf,
     style_function=lambda x: style_location(x, "red"),
     tooltip=GeoJsonTooltip(
-        fields=["id", "acreage"],
-        aliases=["Location id:", "Acreage (ha):"],
+        fields=["ID", "acreage"],
+        aliases=["Location ID:", "Acreage (ha):"],
         localize=True,
     ),
     name="Suggested Locations",
 ).add_to(m)
 
-# Add acreage labels at polygon centroids
-for _, row in loc_gdf.iterrows():
+# Add acreage labels for filtered polygons
+for _, row in filtered_polygons.iterrows():
     centroid = row.geometry.centroid
     folium.Marker(
         location=[centroid.y, centroid.x],
@@ -221,3 +229,23 @@ st.sidebar.download_button(
     file_name="banaskantha_castor_acreage.csv",
     mime="text/csv",
 )
+
+# ============================
+# Download CSV per polygon
+# ============================
+if "All" in selected_ids:
+    ids_to_export = all_ids
+else:
+    ids_to_export = selected_ids
+
+for pid in ids_to_export:
+    poly = loc_gdf[loc_gdf["ID"] == pid]
+    villages_inside = gpd.sjoin(gdf, poly, predicate="within")
+    if not villages_inside.empty:
+        export_df = villages_inside[["VILLAGE", "TEHSIL", "castor_ha"]].copy()
+        st.sidebar.download_button(
+            f"📥 Download Villages (Polygon {pid})",
+            data=export_df.to_csv(index=False),
+            file_name=f"polygon_{pid}_villages.csv",
+            mime="text/csv",
+        )
