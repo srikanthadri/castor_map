@@ -1,12 +1,12 @@
 import os
 import glob
 from pathlib import Path
-
 import streamlit as st
 import geopandas as gpd
 import folium
 from folium.features import GeoJsonTooltip
 from streamlit_folium import st_folium
+import branca.colormap as cm
 
 st.set_page_config(layout="wide")
 
@@ -14,71 +14,172 @@ st.set_page_config(layout="wide")
 # Helpers for paths & caching
 # ----------------------------
 def shapefile_mtime_key(shp_path: str) -> float:
-    """Cache key based on the newest modified time among shapefile components."""
+    """Cache key based on the newest modified time among all companion files of a shapefile."""
     stem = os.path.splitext(shp_path)[0]
     sidecars = glob.glob(stem + ".*")
     if not sidecars:
         return 0.0
     return max(os.path.getmtime(f) for f in sidecars)
 
+
 # ----------------------------
-# Load polygon shapefile
+# Load polygon shapefile (villages)
 # ----------------------------
 @st.cache_data
-def load_polygons():
-    gdf = gpd.read_file(r"shp/polygons.shp")  # 👈 update with your shapefile
+def load_villages():
+    gdf = gpd.read_file(r"shp/castor_village_level_acreage_ha_new_int.shp")
     gdf = gdf.to_crs(epsg=4326)
-
-    # Calculate acreage (ensure projected first)
-    gdf_m = gdf.to_crs(epsg=3857)
-    gdf["acreage"] = gdf_m.area / 4046.86  # sqm → acres
-
-    # Assign category
-    gdf["Category"] = gdf["id"].apply(lambda x: "Existed" if x > 10 else "Suggested")
     return gdf
+
+
+# ----------------------------
+# Load location polygons (instead of points/buffers)
+# ----------------------------
+@st.cache_data
+def load_location_polygons():
+    gdf_loc = gpd.read_file("shp/locations_polygons.shp")  # <-- your shapefile
+    gdf_loc = gdf_loc.to_crs(epsg=4326)
+    return gdf_loc
+
 
 # ============================
 # App
 # ============================
 st.title("🌱 BANAS KANTHA District - Castor Crop Acreage Dashboard")
 
-# Load polygons
-gdf = load_polygons()
+# Load villages
+gdf = load_villages()
+
+# ============================
+# Sidebar filters
+# ============================
+st.sidebar.title("Filters")
+
+# Tehsil filter
+tehsils = ["All"] + sorted(gdf["TEHSIL"].dropna().unique().tolist())
+selected_tehsil = st.sidebar.selectbox("Select Tehsil", tehsils, index=0)
+
+# Village filter
+if selected_tehsil != "All":
+    villages = gdf.loc[gdf["TEHSIL"] == selected_tehsil, "VILLAGE"].dropna().unique().tolist()
+else:
+    villages = gdf["VILLAGE"].dropna().unique().tolist()
+villages = ["All"] + sorted(villages)
+selected_village = st.sidebar.selectbox("Select Village", villages, index=0)
+
+# Optional refresh
+if st.sidebar.button("🔄 Refresh Data (clear cache)"):
+    st.cache_data.clear()
+    st.experimental_rerun()
+
+# ============================
+# Data filtering
+# ============================
+filtered_gdf = gdf
+if selected_tehsil != "All":
+    filtered_gdf = filtered_gdf[filtered_gdf["TEHSIL"] == selected_tehsil]
 
 # ============================
 # Map
 # ============================
-# Map center
-map_center = [gdf.geometry.centroid.y.mean(), gdf.geometry.centroid.x.mean()]
+if filtered_gdf.empty:
+    map_center = [gdf.geometry.centroid.y.mean(), gdf.geometry.centroid.x.mean()]
+else:
+    map_center = [filtered_gdf.geometry.centroid.y.mean(), filtered_gdf.geometry.centroid.x.mean()]
+
 m = folium.Map(location=map_center, zoom_start=9, tiles="CartoDB positron")
 
-# Colors
-color_map = {"Existed": "lightblue", "Suggested": "lightgreen"}
+# Color scale for castor_ha
+ha_series = filtered_gdf["castor_ha"].dropna()
+if ha_series.empty:
+    min_val, max_val = 0, 1
+else:
+    min_val, max_val = float(ha_series.min()), float(ha_series.max())
 
-# Style function
+colormap = cm.LinearColormap(colors=["yellow", "darkgreen"], vmin=min_val, vmax=max_val)
+colormap.caption = f"Castor Area (ha) | Min: {min_val:.2f} | Max: {max_val:.2f}"
+colormap.add_to(m)
+
+
+# Style function for villages
 def style_function(feature):
-    cat = feature["properties"].get("Category")
-    return {
-        "fillColor": color_map.get(cat, "grey"),
-        "color": "black",
-        "weight": 1,
-        "fillOpacity": 0.6,
-    }
+    village_name = feature["properties"].get("VILLAGE")
+    ha_value = feature["properties"].get("castor_ha")
+    if selected_village != "All" and village_name == selected_village:
+        return {"fillColor": "blue", "color": "black", "weight": 3, "fillOpacity": 0.8}
+    else:
+        return {
+            "fillColor": colormap(ha_value) if ha_value is not None else "grey",
+            "color": "black",
+            "weight": 1,
+            "fillOpacity": 0.6,
+        }
 
-# Tooltip with acreage
+
 tooltip = GeoJsonTooltip(
-    fields=["id", "Category", "acreage"],
-    aliases=["Polygon ID:", "Type:", "Acreage (ac):"],
+    fields=["VILLAGE", "TEHSIL", "castor_ha"],
+    aliases=["Village:", "Tehsil:", "Castor (ha):"],
     localize=True,
-    sticky=True,
 )
 
 folium.GeoJson(
-    gdf,
+    filtered_gdf,
     style_function=style_function,
     tooltip=tooltip,
-    name="Polygons",
+    name="Villages",
 ).add_to(m)
+
+# ============================
+# Location polygons overlay
+# ============================
+loc_gdf = load_location_polygons()
+
+# Separate existing vs suggested locations
+existing_gdf = loc_gdf[loc_gdf["ID"] > 10]
+suggested_gdf = loc_gdf[loc_gdf["ID"] <= 10]
+
+def style_location(feature, color):
+    return {
+        "fillColor": color,
+        "color": "black",
+        "weight": 2,
+        "fillOpacity": 0.5,
+    }
+
+# Existing locations (green)
+folium.GeoJson(
+    existing_gdf,
+    style_function=lambda x: style_location(x, "green"),
+    tooltip=GeoJsonTooltip(
+        fields=["ID", "acreage"],
+        aliases=["Location ID:", "Acreage (ha):"],
+        localize=True,
+    ),
+    name="Existing Locations",
+).add_to(m)
+
+# Suggested locations (red)
+folium.GeoJson(
+    suggested_gdf,
+    style_function=lambda x: style_location(x, "red"),
+    tooltip=GeoJsonTooltip(
+        fields=["ID", "acreage"],
+        aliases=["Location ID:", "Acreage (ha):"],
+        localize=True,
+    ),
+    name="Suggested Locations",
+).add_to(m)
+
+# Add acreage labels at polygon centroids
+for _, row in loc_gdf.iterrows():
+    centroid = row.geometry.centroid
+    folium.Marker(
+        location=[centroid.y, centroid.x],
+        icon=folium.DivIcon(
+            html=f"""<div style="font-size:12px; color:black; text-align:center;">
+                     {row['acreage']} ha</div>"""
+        ),
+    ).add_to(m)
 
 # ============================
 # Map -> Streamlit
@@ -86,12 +187,37 @@ folium.GeoJson(
 st_data = st_folium(m, width=1000, height=650)
 
 # ============================
-# Download CSV
+# Village info panel
 # ============================
-csv_data = gdf[["id", "Category", "acreage"]].copy()
+village_info = None
+if st_data and "last_active_drawing" in st_data and st_data["last_active_drawing"]:
+    props = st_data["last_active_drawing"]["properties"]
+    village_info = {
+        "Village": props.get("VILLAGE"),
+        "Tehsil": props.get("TEHSIL"),
+        "Castor Area (ha)": props.get("castor_ha"),
+    }
+elif selected_village != "All":
+    sel_row = filtered_gdf[filtered_gdf["VILLAGE"] == selected_village]
+    if not sel_row.empty:
+        village_info = {
+            "Village": sel_row["VILLAGE"].values[0],
+            "Tehsil": sel_row["TEHSIL"].values[0],
+            "Castor Area (ha)": sel_row["castor_ha"].values[0],
+        }
+
+if village_info:
+    st.sidebar.subheader("Village Information")
+    for k, v in village_info.items():
+        st.sidebar.write(f"**{k}:** {v}")
+
+# ============================
+# Download CSV (district-wide)
+# ============================
+csv_data = gdf[["DISTRICT", "TEHSIL", "VILLAGE", "castor_ha"]].copy()
 st.sidebar.download_button(
-    "📥 Download Polygons Data (CSV)",
+    "📥 Download District Data (CSV)",
     data=csv_data.to_csv(index=False),
-    file_name="banaskantha_polygons.csv",
+    file_name="banaskantha_castor_acreage.csv",
     mime="text/csv",
 )
