@@ -13,7 +13,6 @@ st.set_page_config(layout="wide")
 # Helpers for paths & caching
 # ----------------------------
 def shapefile_mtime_key(shp_path: str) -> float:
-    """Cache key based on the newest modified time among all companion files of a shapefile."""
     stem = os.path.splitext(shp_path)[0]
     sidecars = glob.glob(stem + ".*")
     if not sidecars:
@@ -22,7 +21,7 @@ def shapefile_mtime_key(shp_path: str) -> float:
 
 
 # ----------------------------
-# Load polygon shapefile (villages)
+# Load shapefiles
 # ----------------------------
 @st.cache_data
 def load_villages():
@@ -30,13 +29,9 @@ def load_villages():
     gdf = gdf.to_crs(epsg=4326)
     return gdf
 
-
-# ----------------------------
-# Load location polygons
-# ----------------------------
 @st.cache_data
 def load_location_polygons():
-    gdf_loc = gpd.read_file("shp/polygons.shp")  # <-- your shapefile
+    gdf_loc = gpd.read_file("shp/polygons.shp")
     gdf_loc = gdf_loc.to_crs(epsg=4326)
     return gdf_loc
 
@@ -46,7 +41,6 @@ def load_location_polygons():
 # ============================
 st.title("🌱 BANAS KANTHA District - Castor Crop Acreage Dashboard")
 
-# Load data
 gdf = load_villages()
 loc_gdf = load_location_polygons()
 
@@ -85,22 +79,14 @@ st.sidebar.subheader("Polygon Layer Controls")
 show_existing = st.sidebar.checkbox("Show Existing Locations (Red)", value=True)
 show_suggested = st.sidebar.checkbox("Show Suggested Locations (Green)", value=True)
 
-st.sidebar.markdown("""
-**Color Legend:**  
-- 🟥 Red: Existing Locations  
-- 🟩 Green: Suggested Locations  
-- 🔵 Blue: Polygon centroids
-""")
-
 # ============================
 # Data filtering
 # ============================
 filtered_gdf = gdf.copy()
-
 if selected_tehsil != "All":
     filtered_gdf = filtered_gdf[filtered_gdf["TEHSIL"] == selected_tehsil]
 
-# Apply polygon filter (villages touching polygons)
+# Villages touching polygons
 if not filtered_polygons.empty and "All" not in selected_raw:
     filtered_gdf = gpd.sjoin(filtered_gdf, filtered_polygons, predicate="intersects")
     filtered_gdf = filtered_gdf.drop_duplicates(subset="VILLAGE")
@@ -118,16 +104,12 @@ m = folium.Map(location=map_center, zoom_start=9, tiles="CartoDB positron")
 
 # Color scale for castor_ha
 ha_series = filtered_gdf["castor_ha"].dropna()
-if ha_series.empty:
-    min_val, max_val = 0, 1
-else:
-    min_val, max_val = float(ha_series.min()), float(ha_series.max())
-
+min_val, max_val = (0, 1) if ha_series.empty else (float(ha_series.min()), float(ha_series.max()))
 colormap = cm.LinearColormap(colors=["yellow", "darkgreen"], vmin=min_val, vmax=max_val)
 colormap.caption = f"Castor Area (ha) | Min: {min_val:.2f} | Max: {max_val:.2f}"
 colormap.add_to(m)
 
-# Style function for villages
+# Village style
 def style_function(feature):
     village_name = feature["properties"].get("VILLAGE")
     ha_value = feature["properties"].get("castor_ha")
@@ -154,7 +136,7 @@ if not filtered_gdf.empty:
     ).add_to(m)
 
 # ============================
-# Location polygons overlay
+# Polygons overlay
 # ============================
 def style_location(feature, color):
     return {"fillColor": color, "color": "black", "weight": 2, "fillOpacity": 0.5}
@@ -162,8 +144,8 @@ def style_location(feature, color):
 existing_gdf = filtered_polygons[filtered_polygons["id"] > 10]
 suggested_gdf = filtered_polygons[filtered_polygons["id"] <= 10]
 
-# Existing locations
-if show_existing and not existing_gdf.empty and "id" in existing_gdf.columns:
+# Existing polygons
+if show_existing and not existing_gdf.empty:
     folium.GeoJson(
         existing_gdf,
         style_function=lambda x: style_location(x, "red"),
@@ -171,8 +153,8 @@ if show_existing and not existing_gdf.empty and "id" in existing_gdf.columns:
         name="Existing Locations",
     ).add_to(m)
 
-# Suggested locations
-if show_suggested and not suggested_gdf.empty and "id" in suggested_gdf.columns:
+# Suggested polygons
+if show_suggested and not suggested_gdf.empty:
     folium.GeoJson(
         suggested_gdf,
         style_function=lambda x: style_location(x, "green"),
@@ -180,18 +162,36 @@ if show_suggested and not suggested_gdf.empty and "id" in suggested_gdf.columns:
         name="Suggested Locations",
     ).add_to(m)
 
-# Add point locations (centroids)
+# Add centroid points matching polygon color
 for _, row in filtered_polygons.iterrows():
     centroid = row.geometry.centroid
-    folium.CircleMarker(
-        location=[centroid.y, centroid.x],
-        radius=4,
-        color="blue",
-        fill=True,
-        fill_color="blue",
-        fill_opacity=0.7,
-        popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
-    ).add_to(m)
+    color = "green" if row["id"] <= 10 else "red"
+    if (color == "green" and show_suggested) or (color == "red" and show_existing):
+        folium.CircleMarker(
+            location=[centroid.y, centroid.x],
+            radius=4,
+            color=color,
+            fill=True,
+            fill_color=color,
+            fill_opacity=0.7,
+            popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
+        ).add_to(m)
+
+# ============================
+# Map legend on display
+# ============================
+legend_html = """
+<div style="position: fixed; 
+     bottom: 50px; left: 50px; width: 150px; height: 90px; 
+     border:2px solid grey; z-index:9999; font-size:14px;
+     background-color:white; padding: 10px;">
+<b>Legend</b><br>
+🟩 Suggested Locations<br>
+🟥 Existing Locations<br>
+🔵 Polygon Centroids
+</div>
+"""
+m.get_root().html.add_child(folium.Element(legend_html))
 
 # ============================
 # Map -> Streamlit
@@ -224,7 +224,7 @@ if village_info:
         st.sidebar.write(f"**{k}:** {v}")
 
 # ============================
-# Download CSV (district-wide)
+# Download CSVs
 # ============================
 csv_data = gdf[["DISTRICT", "TEHSIL", "VILLAGE", "castor_ha"]].copy()
 st.sidebar.download_button(
@@ -234,9 +234,6 @@ st.sidebar.download_button(
     mime="text/csv",
 )
 
-# ============================
-# Download CSV per polygon
-# ============================
 for pid in selected_ids:
     poly = loc_gdf[loc_gdf["id"] == pid]
     villages_inside = gpd.sjoin(gdf, poly, predicate="intersects")
