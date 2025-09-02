@@ -79,6 +79,20 @@ else:
 filtered_polygons = loc_gdf[loc_gdf["id"].isin(selected_ids)]
 
 # ============================
+# Polygon Layer Toggles
+# ============================
+st.sidebar.subheader("Polygon Layer Controls")
+show_existing = st.sidebar.checkbox("Show Existing Locations (Red)", value=True)
+show_suggested = st.sidebar.checkbox("Show Suggested Locations (Green)", value=True)
+
+st.sidebar.markdown("""
+**Color Legend:**  
+- 🟥 Red: Existing Locations  
+- 🟩 Green: Suggested Locations  
+- 🔵 Blue: Polygon centroids
+""")
+
+# ============================
 # Data filtering
 # ============================
 filtered_gdf = gdf.copy()
@@ -148,28 +162,35 @@ def style_location(feature, color):
 existing_gdf = filtered_polygons[filtered_polygons["id"] > 10]
 suggested_gdf = filtered_polygons[filtered_polygons["id"] <= 10]
 
-if not existing_gdf.empty and "id" in existing_gdf.columns:
+# Existing locations
+if show_existing and not existing_gdf.empty and "id" in existing_gdf.columns:
     folium.GeoJson(
         existing_gdf,
-        style_function=lambda x: style_location(x, "green"),
+        style_function=lambda x: style_location(x, "red"),
         tooltip=GeoJsonTooltip(fields=["id", "acreage"], aliases=["Location ID:", "Acreage (ha):"]),
         name="Existing Locations",
     ).add_to(m)
 
-if not suggested_gdf.empty and "id" in suggested_gdf.columns:
+# Suggested locations
+if show_suggested and not suggested_gdf.empty and "id" in suggested_gdf.columns:
     folium.GeoJson(
         suggested_gdf,
-        style_function=lambda x: style_location(x, "red"),
+        style_function=lambda x: style_location(x, "green"),
         tooltip=GeoJsonTooltip(fields=["id", "acreage"], aliases=["Location ID:", "Acreage (ha):"]),
         name="Suggested Locations",
     ).add_to(m)
 
-# Add acreage labels for filtered polygons
+# Add point locations (centroids)
 for _, row in filtered_polygons.iterrows():
     centroid = row.geometry.centroid
-    folium.Marker(
+    folium.CircleMarker(
         location=[centroid.y, centroid.x],
-        icon=folium.DivIcon(html=f"<div style='font-size:12px; color:black; text-align:center;'>{row['acreage']} ha</div>"),
+        radius=4,
+        color="blue",
+        fill=True,
+        fill_color="blue",
+        fill_opacity=0.7,
+        popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
     ).add_to(m)
 
 # ============================
