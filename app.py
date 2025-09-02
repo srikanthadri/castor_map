@@ -177,43 +177,58 @@ if show_suggested and not suggested_gdf.empty:
     #             popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
     #         ).add_to(m)
 
+# for _, row in filtered_polygons.iterrows():
+#     centroid = row.geometry.centroid
+#     color = "green" if row["id"] <= 10 else "red"
+    
+#     if (color == "green" and show_suggested) or (color == "red" and show_existing):
+#         # Small circle marker
+#         folium.CircleMarker(
+#             location=[centroid.y, centroid.x],
+#             radius=2,  # smaller size
+#             color=color,
+#             fill=True,
+#             fill_color=color,
+#             fill_opacity=0.4,
+#             popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
+#         ).add_to(m)
+        
+#         # Label on top
+#         folium.Marker(
+#             location=[centroid.y, centroid.x],
+#             icon=folium.DivIcon(
+#                 html=f"""
+#                 <div style="
+#                     display: inline-block;
+#                     font-size: 10px; 
+#                     color: black; 
+#                     font-weight: bold; 
+#                     text-align: center; 
+#                     line-height: 1.2; 
+#                     padding: 2px 4px; 
+#                     background-color: white; 
+#                     border-radius: 2px;
+#                     box-sizing: border-box;">
+#                     ID: {row['id']}<br>{row['acreage']} ha
+#                 </div>
+#                 """
+#             )
+#         ).add_to(m)
 for _, row in filtered_polygons.iterrows():
     centroid = row.geometry.centroid
     color = "green" if row["id"] <= 10 else "red"
     
     if (color == "green" and show_suggested) or (color == "red" and show_existing):
-        # Small circle marker
         folium.CircleMarker(
             location=[centroid.y, centroid.x],
-            radius=4,  # smaller size
+            radius=5,
             color=color,
             fill=True,
             fill_color=color,
             fill_opacity=0.6,
             popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
         ).add_to(m)
-        
-        # Label on top
-        folium.Marker(
-            location=[centroid.y, centroid.x],
-            icon=folium.DivIcon(
-                html=f"""
-                <div style="
-                    display: inline-block;
-                    font-size: 10px; 
-                    color: black; 
-                    font-weight: bold; 
-                    text-align: center; 
-                    line-height: 1.2; 
-                    padding: 2px 4px; 
-                    background-color: white; 
-                    border-radius: 2px;
-                    box-sizing: border-box;">
-                    ID: {row['id']}<br>{row['acreage']} ha
-                </div>
-                """
-            )
-        ).add_to(m)
+
 
 
 
