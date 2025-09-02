@@ -18,7 +18,6 @@ def find_points_path():
     """Try common paths for the points shapefile; return first that exists."""
     candidates = [
         "shp/points_suggested.shp",
-        
     ]
     for p in candidates:
         if Path(p).exists():
@@ -40,17 +39,6 @@ def shapefile_mtime_key(shp_path: str) -> float:
 # Load polygon shapefile (villages)
 # ----------------------------
 @st.cache_data
-def create_buffers(_points_gdf, distance_km: float = 25.0):
-    # buffer in meters in a projected CRS, then back to 4326
-    pts_3857 = _points_gdf.to_crs(epsg=3857)
-    buf_series = pts_3857.buffer(distance_km * 1000.0)
-    buf_gdf = gpd.GeoDataFrame(
-        _points_gdf.drop(columns="geometry"),
-        geometry=buf_series,
-        crs=pts_3857.crs
-    ).to_crs(epsg=4326)
-    return buf_gdf
-
 def load_villages():
     gdf = gpd.read_file(r"shp/castor_village_level_acreage_ha_new_int.shp")
     gdf = gdf.to_crs(epsg=4326)
@@ -70,13 +58,15 @@ def load_points(points_path: str, version_key: float):
 # Create buffers around points (25 km)
 # ----------------------------
 @st.cache_data
-def create_buffers(points_gdf, distance_km: float = 25.0):
+def create_buffers(_points_gdf, distance_km: float = 25.0, version_key: float = 0.0):
     # buffer in meters in a projected CRS, then back to 4326
-    pts_3857 = points_gdf.to_crs(epsg=3857)
+    pts_3857 = _points_gdf.to_crs(epsg=3857)
     buf_series = pts_3857.buffer(distance_km * 1000.0)
-    buf_gdf = gpd.GeoDataFrame(points_gdf.drop(columns="geometry"),
-                               geometry=buf_series,
-                               crs=pts_3857.crs).to_crs(epsg=4326)
+    buf_gdf = gpd.GeoDataFrame(
+        _points_gdf.drop(columns="geometry"),
+        geometry=buf_series,
+        crs=pts_3857.crs,
+    ).to_crs(epsg=4326)
     return buf_gdf
 
 # ============================
@@ -212,7 +202,7 @@ if (show_points or show_buffers):
 
             # Add buffers
             if show_buffers:
-                buf_gdf = create_buffers(points_gdf, distance_km=25.0)
+                buf_gdf = create_buffers(points_gdf, distance_km=25.0, version_key=version_key)
                 folium.GeoJson(
                     buf_gdf,
                     name="25 km Buffers",
