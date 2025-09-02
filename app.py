@@ -178,11 +178,25 @@ for _, row in filtered_polygons.iterrows():
         ).add_to(m)
 
 # ============================
-# Map legend on display
+# Add polygon labels (ID + Acreage)
+# ============================
+for _, row in filtered_polygons.iterrows():
+    centroid = row.geometry.centroid
+    color = "green" if row["id"] <= 10 else "red"
+    if (color == "green" and show_suggested) or (color == "red" and show_existing):
+        folium.Marker(
+            location=[centroid.y, centroid.x],
+            icon=folium.DivIcon(
+                html=f"<div style='font-size:12px; color:black; text-align:center;'>ID: {row['id']}<br>{row['acreage']} ha</div>"
+            )
+        ).add_to(m)
+
+# ============================
+# Map legend on top-left
 # ============================
 legend_html = """
 <div style="position: fixed; 
-     bottom: 50px; left: 50px; width: 150px; height: 90px; 
+     top: 50px; left: 10px; width: 160px; height: 90px; 
      border:2px solid grey; z-index:9999; font-size:14px;
      background-color:white; padding: 10px;">
 <b>Legend</b><br>
@@ -192,6 +206,7 @@ legend_html = """
 </div>
 """
 m.get_root().html.add_child(folium.Element(legend_html))
+
 
 # ============================
 # Map -> Streamlit
