@@ -69,7 +69,7 @@ villages = ["All"] + sorted(villages)
 selected_village = st.sidebar.selectbox("Select Village", villages, index=0)
 
 # Polygon filter
-all_ids = sorted(loc_gdf["ID"].unique().tolist())
+all_ids = sorted(loc_gdf["id"].unique().tolist())
 selected_ids = st.sidebar.multiselect(
     "Select Location IDs", ["All"] + all_ids, default="All"
 )
@@ -77,7 +77,7 @@ selected_ids = st.sidebar.multiselect(
 if "All" in selected_ids:
     filtered_polygons = loc_gdf
 else:
-    filtered_polygons = loc_gdf[loc_gdf["ID"].isin(selected_ids)]
+    filtered_polygons = loc_gdf[loc_gdf["id"].isin(selected_ids)]
 
 # ============================
 # Data filtering
@@ -151,15 +151,15 @@ def style_location(feature, color):
         "fillOpacity": 0.5,
     }
 
-existing_gdf = filtered_polygons[filtered_polygons["ID"] > 10]
-suggested_gdf = filtered_polygons[filtered_polygons["ID"] <= 10]
+existing_gdf = filtered_polygons[filtered_polygons["id"] > 10]
+suggested_gdf = filtered_polygons[filtered_polygons["id"] <= 10]
 
 # Existing locations (green)
 folium.GeoJson(
     existing_gdf,
     style_function=lambda x: style_location(x, "green"),
     tooltip=GeoJsonTooltip(
-        fields=["ID", "acreage"],
+        fields=["id", "acreage"],
         aliases=["Location ID:", "Acreage (ha):"],
         localize=True,
     ),
@@ -171,7 +171,7 @@ folium.GeoJson(
     suggested_gdf,
     style_function=lambda x: style_location(x, "red"),
     tooltip=GeoJsonTooltip(
-        fields=["ID", "acreage"],
+        fields=["id", "acreage"],
         aliases=["Location ID:", "Acreage (ha):"],
         localize=True,
     ),
@@ -239,7 +239,7 @@ else:
     ids_to_export = selected_ids
 
 for pid in ids_to_export:
-    poly = loc_gdf[loc_gdf["ID"] == pid]
+    poly = loc_gdf[loc_gdf["id"] == pid]
     villages_inside = gpd.sjoin(gdf, poly, predicate="within")
     if not villages_inside.empty:
         export_df = villages_inside[["VILLAGE", "TEHSIL", "castor_ha"]].copy()
