@@ -1,165 +1,124 @@
 import streamlit as st
 import geopandas as gpd
 import folium
-from folium.features import GeoJsonTooltip
+from folium import GeoJson
 from streamlit_folium import st_folium
-import branca.colormap as cm
 
 # ----------------------------
-# Load shapefiles
+# Load shapefile for suggested points
 # ----------------------------
 @st.cache_data
-def load_data():
-    gdf = gpd.read_file(r"shp//castor_village_level_acreage_ha_new_int.shp")
-    gdf = gdf.to_crs(epsg=4326)
-    return gdf
-
-@st.cache_data(ttl=0)  # disable long caching for points
 def load_points():
-    points = gpd.read_file(r"shp//points_suggested.shp")  # updated point shapefile
+    points = gpd.read_file("shp//suggested_points.shp")  # ensure updated file is here
     points = points.to_crs(epsg=4326)
     return points
 
-gdf = load_data()
-points_gdf = load_points()
+# ----------------------------
+# Create buffer polygons around points
+# ----------------------------
+@st.cache_data
+def create_buffers(points_gdf, distance_km=25):
+    return points_gdf.to_crs(epsg=3857).buffer(distance_km * 1000).to_crs(epsg=4326)
 
 # ----------------------------
-# Title
+# Main function
 # ----------------------------
-st.title("🌱 BANAS KANTHA District - Castor Crop Acreage Dashboard")
+def main():
+    st.set_page_config(layout="wide")
+    st.title("🌍 Suggested Villages Dashboard")
 
-# ----------------------------
-# Sidebar filters
-# ----------------------------
-st.sidebar.title("Filters")
+    # Load data
+    try:
+        points_gdf = load_points()
+    except Exception as e:
+        st.error(f"Error loading shapefile: {e}")
+        return
 
-# Tehsil filter
-tehsils = ["All"] + sorted(gdf["TEHSIL"].dropna().unique().tolist())
-selected_tehsil = st.sidebar.selectbox("Select Tehsil", tehsils)
+    # If no data
+    if points_gdf.empty:
+        st.warning("No points found in shapefile.")
+        return
 
-# Village filter
-if selected_tehsil != "All":
-    villages = gdf[gdf["TEHSIL"] == selected_tehsil]["VILLAGE"].dropna().unique().tolist()
-else:
-    villages = gdf["VILLAGE"].dropna().unique().tolist()
+    # Create buffer polygons
+    buffer_gdf = create_buffers(points_gdf)
 
-villages = ["All"] + sorted(villages)
-selected_village = st.sidebar.selectbox("Select Village", villages)
+    # Sidebar controls
+    st.sidebar.header("⚙️ Controls")
 
-# Toggle layers
-show_points = st.sidebar.checkbox("Show Suggested Locations (Points)", value=True)
-show_buffers = st.sidebar.checkbox("Show 25 km Buffers", value=False)
-
-# Point selection
-point_names = points_gdf["NAME"].tolist() if "NAME" in points_gdf.columns else [f"Point {i}" for i in range(len(points_gdf))]
-point_selection = st.sidebar.selectbox("Select Suggested Location", ["None"] + point_names)
-
-# ----------------------------
-# Data filtering
-# ----------------------------
-filtered_gdf = gdf.copy()
-if selected_tehsil != "All":
-    filtered_gdf = filtered_gdf[filtered_gdf["TEHSIL"] == selected_tehsil]
-
-# ----------------------------
-# Create map
-# ----------------------------
-m = folium.Map(
-    location=[filtered_gdf.geometry.centroid.y.mean(),
-              filtered_gdf.geometry.centroid.x.mean()],
-    zoom_start=9,
-    tiles="CartoDB positron"
-)
-
-# Color scale based on "castor_ha"
-min_val, max_val = filtered_gdf["castor_ha"].min(), filtered_gdf["castor_ha"].max()
-colormap = cm.LinearColormap(colors=['yellow', 'darkgreen'], vmin=min_val, vmax=max_val)
-colormap.caption = f"Castor Area (ha) | Min: {min_val} | Max: {max_val}"
-colormap.add_to(m)
-
-# ----------------------------
-# Add polygons (villages)
-# ----------------------------
-def style_function(feature):
-    village_name = feature["properties"]["VILLAGE"]
-    ha_value = feature["properties"]["castor_ha"]
-
-    if selected_village != "All" and village_name == selected_village:
-        return {"fillColor": "blue", "color": "black", "weight": 3, "fillOpacity": 0.8}
+    # Use NAME column if available
+    if "NAME" in points_gdf.columns:
+        village_options = points_gdf["NAME"].tolist()
     else:
-        return {"fillColor": colormap(ha_value) if ha_value is not None else "grey",
-                "color": "black", "weight": 1, "fillOpacity": 0.6}
+        village_options = [f"Point {i}" for i in range(len(points_gdf))]
 
-tooltip = GeoJsonTooltip(fields=["VILLAGE", "TEHSIL", "castor_ha"],
-                         aliases=["Village:", "Tehsil:", "Castor (ha):"], localize=True)
+    selected_village = st.sidebar.selectbox("Select a Village", village_options)
 
-folium.GeoJson(filtered_gdf, style_function=style_function, tooltip=tooltip, name="Villages").add_to(m)
+    show_points = st.sidebar.checkbox("Show Suggested Points", value=True)
+    show_buffers = st.sidebar.checkbox("Show Buffer (25 km)", value=True)
 
-# ----------------------------
-# Add suggested locations (points)
-# ----------------------------
-if show_points:
-    for _, row in points_gdf.iterrows():
-        folium.Marker(
-            location=[row.geometry.y, row.geometry.x],
-            popup=row["NAME"] if "NAME" in row else "Suggested Location",
-            icon=folium.Icon(color="red", icon="map-marker")
+    # Map center
+    center = [points_gdf.geometry.y.mean(), points_gdf.geometry.x.mean()]
+    m = folium.Map(location=center, zoom_start=7, tiles="cartodbpositron")
+
+    # Add suggested points
+    if show_points:
+        for _, row in points_gdf.iterrows():
+            folium.Marker(
+                location=[row.geometry.y, row.geometry.x],
+                popup=row["NAME"] if "NAME" in points_gdf.columns else "Point",
+                icon=folium.Icon(color="red", icon="map-marker")
+            ).add_to(m)
+
+    # Add buffer polygons
+    if show_buffers:
+        GeoJson(
+            buffer_gdf,
+            name="Buffers",
+            style_function=lambda x: {
+                "color": "blue",
+                "fillColor": "lightblue",
+                "fillOpacity": 0.3,
+                "weight": 2,
+            }
         ).add_to(m)
 
-# ----------------------------
-# Highlight villages within 25 km of selected point
-# ----------------------------
-buffered_villages = None
-if show_buffers and point_selection != "None":
-    selected_point = points_gdf[points_gdf["NAME"] == point_selection] if "NAME" in points_gdf.columns else points_gdf.iloc[[point_names.index(point_selection)-1]]
+    # Highlight selected village
+    if selected_village:
+        if "NAME" in points_gdf.columns:
+            sel_point = points_gdf[points_gdf["NAME"] == selected_village]
+            sel_buffer = buffer_gdf.loc[sel_point.index]
+        else:
+            idx = village_options.index(selected_village)
+            sel_point = points_gdf.iloc[[idx]]
+            sel_buffer = buffer_gdf.iloc[[idx]]
 
-    # Reproject to meters for buffer
-    point_m = selected_point.to_crs(epsg=3857)
-    buffer_m = point_m.buffer(25000)  # 25 km
-    buffer = buffer_m.to_crs(epsg=4326)
+        # Highlight selected point
+        GeoJson(
+            sel_point,
+            name="Selected Village",
+            style_function=lambda x: {"color": "red"}
+        ).add_to(m)
 
-    # Get villages within buffer
-    buffered_villages = gdf[gdf.intersects(buffer.iloc[0])]
+        # Highlight selected buffer
+        GeoJson(
+            sel_buffer,
+            name="Selected Buffer",
+            style_function=lambda x: {
+                "color": "red",
+                "fillColor": "pink",
+                "fillOpacity": 0.4,
+                "weight": 2,
+            }
+        ).add_to(m)
 
-    # Add buffer to map
-    folium.GeoJson(buffer, style_function=lambda x: {"fillColor": "none", "color": "red", "weight": 2}).add_to(m)
+        # Zoom to selected buffer
+        m.fit_bounds(sel_buffer.total_bounds.reshape(2, 2).tolist())
 
-    # Highlight villages in buffer
-    folium.GeoJson(buffered_villages,
-                   style_function=lambda x: {"fillColor": "orange", "color": "black", "weight": 2, "fillOpacity": 0.7},
-                   tooltip=tooltip).add_to(m)
+    # Layer control
+    folium.LayerControl().add_to(m)
 
-# ----------------------------
-# Show map
-# ----------------------------
-st_data = st_folium(m, width=800, height=600)
+    # Show in Streamlit
+    st_folium(m, width=1000, height=600)
 
-# ----------------------------
-# Show village info
-# ----------------------------
-village_info = None
-if st_data and "last_active_drawing" in st_data and st_data["last_active_drawing"]:
-    props = st_data["last_active_drawing"]["properties"]
-    village_info = {"Village": props.get("VILLAGE"), "Tehsil": props.get("TEHSIL"), "Castor Area (ha)": props.get("castor_ha")}
-elif selected_village != "All":
-    selected_row = filtered_gdf[filtered_gdf["VILLAGE"] == selected_village]
-    if not selected_row.empty:
-        village_info = {"Village": selected_row["VILLAGE"].values[0], "Tehsil": selected_row["TEHSIL"].values[0], "Castor Area (ha)": selected_row["castor_ha"].values[0]}
-
-if village_info:
-    st.sidebar.subheader("Village Information")
-    for k, v in village_info.items():
-        st.sidebar.write(f"**{k}:** {v}")
-
-# ----------------------------
-# Download CSV
-# ----------------------------
-csv_data = gdf[["DISTRICT", "TEHSIL", "VILLAGE", "castor_ha"]].copy()
-csv = csv_data.to_csv(index=False)
-
-st.sidebar.download_button("📥 Download District Data (CSV)", data=csv, file_name="banaskantha_castor_acreage.csv", mime="text/csv")
-
-# If buffer villages selected, allow download
-if buffered_villages is not None and not buffered_villages.empty:
-    csv_buf = buffered_villages[["DISTRICT", "TEHSIL", "VILLAGE", "castor_ha"]].to_csv(index=False)
-    st.sidebar.download_button("📥 Download Villages in 25 km Buffer (CSV)", data=csv_buf, file_name="villages_in_buffer.csv", mime="text/csv")
+if __name__ == "__main__":
+    main()
