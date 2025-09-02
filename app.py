@@ -1,6 +1,5 @@
 import os
 import glob
-from pathlib import Path
 import streamlit as st
 import geopandas as gpd
 import folium
@@ -69,82 +68,32 @@ villages = ["All"] + sorted(villages)
 selected_village = st.sidebar.selectbox("Select Village", villages, index=0)
 
 # Polygon filter
-# Ensure IDs are integers
 all_ids = sorted([int(i) for i in loc_gdf["id"].unique().tolist()])
+selected_raw = st.sidebar.multiselect("Select Location IDs", ["All"] + all_ids, default="All")
 
-# Sidebar selection (keep "All" as string, rest as ints)
-selected_raw = st.sidebar.multiselect(
-    "Select Location IDs", ["All"] + all_ids, default="All"
-)
-
-# Normalize selection
 if "All" in selected_raw:
     selected_ids = all_ids
 else:
     selected_ids = [int(i) for i in selected_raw]
 
-# Filter polygons
 filtered_polygons = loc_gdf[loc_gdf["id"].isin(selected_ids)]
-
 
 # ============================
 # Data filtering
 # ============================
-# ============================
-# Map
-# ============================
-# Initialize filtered_gdf with all villages
 filtered_gdf = gdf.copy()
-if filtered_gdf.empty:
-    map_center = [gdf.geometry.centroid.y.mean(), gdf.geometry.centroid.x.mean()]
-else:
-    map_center = [filtered_gdf.geometry.centroid.y.mean(), filtered_gdf.geometry.centroid.x.mean()]
 
-m = folium.Map(location=map_center, zoom_start=9, tiles="CartoDB positron")
+if selected_tehsil != "All":
+    filtered_gdf = filtered_gdf[filtered_gdf["TEHSIL"] == selected_tehsil]
 
-# Color scale for castor_ha
-ha_series = filtered_gdf["castor_ha"].dropna()
-if ha_series.empty:
-    min_val, max_val = 0, 1
-else:
-    min_val, max_val = float(ha_series.min()), float(ha_series.max())
-
-colormap = cm.LinearColormap(colors=["yellow", "darkgreen"], vmin=min_val, vmax=max_val)
-colormap.caption = f"Castor Area (ha) | Min: {min_val:.2f} | Max: {max_val:.2f}"
-colormap.add_to(m)
-
-# ✅ keep this function defined
-def style_function(feature):
-    village_name = feature["properties"].get("VILLAGE")
-    ha_value = feature["properties"].get("castor_ha")
-    if selected_village != "All" and village_name == selected_village:
-        return {"fillColor": "blue", "color": "black", "weight": 3, "fillOpacity": 0.8}
-    else:
-        return {
-            "fillColor": colormap(ha_value) if ha_value is not None else "grey",
-            "color": "black",
-            "weight": 1,
-            "fillOpacity": 0.6,
-        }
-
-tooltip = GeoJsonTooltip(
-    fields=["VILLAGE", "TEHSIL", "castor_ha"],
-    aliases=["Village:", "Tehsil:", "Castor (ha):"],
-    localize=True,
-)
-
-# ✅ Only add if not empty
-if not filtered_gdf.empty:
-    folium.GeoJson(
-        filtered_gdf,
-        style_function=style_function,
-        tooltip=tooltip,
-        name="Villages",
-    ).add_to(m)
-
+# Apply polygon filter (villages touching polygons)
+if not filtered_polygons.empty and "All" not in selected_raw:
+    filtered_gdf = gpd.sjoin(filtered_gdf, filtered_polygons, predicate="intersects")
+    filtered_gdf = filtered_gdf.drop_duplicates(subset="VILLAGE")
+    filtered_gdf = filtered_gdf.drop(columns=["index_right"], errors="ignore")
 
 # ============================
-# Map
+# Map setup
 # ============================
 if filtered_gdf.empty:
     map_center = [gdf.geometry.centroid.y.mean(), gdf.geometry.centroid.x.mean()]
@@ -163,7 +112,6 @@ else:
 colormap = cm.LinearColormap(colors=["yellow", "darkgreen"], vmin=min_val, vmax=max_val)
 colormap.caption = f"Castor Area (ha) | Min: {min_val:.2f} | Max: {max_val:.2f}"
 colormap.add_to(m)
-
 
 # Style function for villages
 def style_function(feature):
@@ -179,67 +127,49 @@ def style_function(feature):
             "fillOpacity": 0.6,
         }
 
-
-tooltip = GeoJsonTooltip(
-    fields=["VILLAGE", "TEHSIL", "castor_ha"],
-    aliases=["Village:", "Tehsil:", "Castor (ha):"],
-    localize=True,
-)
-
-folium.GeoJson(
-    filtered_gdf,
-    style_function=style_function,
-    tooltip=tooltip,
-    name="Villages",
-).add_to(m)
+if not filtered_gdf.empty:
+    folium.GeoJson(
+        filtered_gdf,
+        style_function=style_function,
+        tooltip=GeoJsonTooltip(
+            fields=["VILLAGE", "TEHSIL", "castor_ha"],
+            aliases=["Village:", "Tehsil:", "Castor (ha):"],
+            localize=True,
+        ),
+        name="Villages",
+    ).add_to(m)
 
 # ============================
-# Location polygons overlay (filtered)
+# Location polygons overlay
 # ============================
 def style_location(feature, color):
-    return {
-        "fillColor": color,
-        "color": "black",
-        "weight": 2,
-        "fillOpacity": 0.5,
-    }
+    return {"fillColor": color, "color": "black", "weight": 2, "fillOpacity": 0.5}
 
 existing_gdf = filtered_polygons[filtered_polygons["id"] > 10]
 suggested_gdf = filtered_polygons[filtered_polygons["id"] <= 10]
 
-# Existing locations (green)
-folium.GeoJson(
-    existing_gdf,
-    style_function=lambda x: style_location(x, "green"),
-    tooltip=GeoJsonTooltip(
-        fields=["id", "acreage"],
-        aliases=["Location ID:", "Acreage (ha):"],
-        localize=True,
-    ),
-    name="Existing Locations",
-).add_to(m)
+if not existing_gdf.empty and "id" in existing_gdf.columns:
+    folium.GeoJson(
+        existing_gdf,
+        style_function=lambda x: style_location(x, "green"),
+        tooltip=GeoJsonTooltip(fields=["id", "acreage"], aliases=["Location ID:", "Acreage (ha):"]),
+        name="Existing Locations",
+    ).add_to(m)
 
-# Suggested locations (red)
-folium.GeoJson(
-    suggested_gdf,
-    style_function=lambda x: style_location(x, "red"),
-    tooltip=GeoJsonTooltip(
-        fields=["id", "acreage"],
-        aliases=["Location ID:", "Acreage (ha):"],
-        localize=True,
-    ),
-    name="Suggested Locations",
-).add_to(m)
+if not suggested_gdf.empty and "id" in suggested_gdf.columns:
+    folium.GeoJson(
+        suggested_gdf,
+        style_function=lambda x: style_location(x, "red"),
+        tooltip=GeoJsonTooltip(fields=["id", "acreage"], aliases=["Location ID:", "Acreage (ha):"]),
+        name="Suggested Locations",
+    ).add_to(m)
 
 # Add acreage labels for filtered polygons
 for _, row in filtered_polygons.iterrows():
     centroid = row.geometry.centroid
     folium.Marker(
         location=[centroid.y, centroid.x],
-        icon=folium.DivIcon(
-            html=f"""<div style="font-size:12px; color:black; text-align:center;">
-                     {row['acreage']} ha</div>"""
-        ),
+        icon=folium.DivIcon(html=f"<div style='font-size:12px; color:black; text-align:center;'>{row['acreage']} ha</div>"),
     ).add_to(m)
 
 # ============================
@@ -286,11 +216,8 @@ st.sidebar.download_button(
 # ============================
 # Download CSV per polygon
 # ============================
-ids_to_export = selected_ids
-
-for pid in ids_to_export:
+for pid in selected_ids:
     poly = loc_gdf[loc_gdf["id"] == pid]
-    # Use intersects instead of within
     villages_inside = gpd.sjoin(gdf, poly, predicate="intersects")
     if not villages_inside.empty:
         export_df = villages_inside[["VILLAGE", "TEHSIL", "castor_ha"]].copy()
@@ -300,4 +227,3 @@ for pid in ids_to_export:
             file_name=f"polygon_{pid}_villages.csv",
             mime="text/csv",
         )
-
