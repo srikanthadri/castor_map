@@ -40,6 +40,17 @@ def shapefile_mtime_key(shp_path: str) -> float:
 # Load polygon shapefile (villages)
 # ----------------------------
 @st.cache_data
+def create_buffers(_points_gdf, distance_km: float = 25.0):
+    # buffer in meters in a projected CRS, then back to 4326
+    pts_3857 = _points_gdf.to_crs(epsg=3857)
+    buf_series = pts_3857.buffer(distance_km * 1000.0)
+    buf_gdf = gpd.GeoDataFrame(
+        _points_gdf.drop(columns="geometry"),
+        geometry=buf_series,
+        crs=pts_3857.crs
+    ).to_crs(epsg=4326)
+    return buf_gdf
+
 def load_villages():
     gdf = gpd.read_file(r"shp/castor_village_level_acreage_ha_new_int.shp")
     gdf = gdf.to_crs(epsg=4326)
