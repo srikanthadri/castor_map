@@ -181,12 +181,11 @@ for _, row in filtered_polygons.iterrows():
     centroid = row.geometry.centroid
     color = "green" if row["id"] <= 10 else "red"
     
-    # Check layer toggle
     if (color == "green" and show_suggested) or (color == "red" and show_existing):
-        # Add small circle marker
+        # Small circle marker
         folium.CircleMarker(
             location=[centroid.y, centroid.x],
-            radius=5,  # small marker
+            radius=4,  # smaller size
             color=color,
             fill=True,
             fill_color=color,
@@ -194,7 +193,7 @@ for _, row in filtered_polygons.iterrows():
             popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
         ).add_to(m)
         
-        # Add label on top
+        # Label on top
         folium.Marker(
             location=[centroid.y, centroid.x],
             icon=folium.DivIcon(
@@ -206,7 +205,7 @@ for _, row in filtered_polygons.iterrows():
                     font-weight: bold; 
                     text-align: center; 
                     line-height: 1.2; 
-                    padding: 3px 5px; 
+                    padding: 2px 4px; 
                     background-color: white; 
                     border-radius: 2px;
                     box-sizing: border-box;">
@@ -215,6 +214,7 @@ for _, row in filtered_polygons.iterrows():
                 """
             )
         ).add_to(m)
+
 
 
 # ============================
