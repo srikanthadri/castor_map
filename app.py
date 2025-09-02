@@ -202,9 +202,10 @@ for _, row in filtered_polygons.iterrows():
 # ============================
 legend_html = """
 <div style="position: fixed; 
-     top: 60px; left: 20px; width: 180px; height: 100px; 
+     top: 100px; left: 20px; width: 180px; height: 100px; 
      border:2px solid grey; z-index:9999; font-size:14px;
      background-color:white; padding: 10px; line-height:1.3;">
+
 <b>Legend</b><br>
 🟩 Suggested Locations<br>
 🟥 Existing Locations<br>
