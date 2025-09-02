@@ -19,7 +19,6 @@ def shapefile_mtime_key(shp_path: str) -> float:
         return 0.0
     return max(os.path.getmtime(f) for f in sidecars)
 
-
 # ----------------------------
 # Load shapefiles
 # ----------------------------
@@ -35,6 +34,11 @@ def load_location_polygons():
     gdf_loc = gdf_loc.to_crs(epsg=4326)
     return gdf_loc
 
+@st.cache_data
+def load_points():
+    gdf_points = gpd.read_file("shp/points.shp")  # Replace with your points shapefile path
+    gdf_points = gdf_points.to_crs(epsg=4326)
+    return gdf_points
 
 # ============================
 # App
@@ -43,6 +47,7 @@ st.title("🌱 BANAS KANTHA District - Castor Crop Acreage Dashboard")
 
 gdf = load_villages()
 loc_gdf = load_location_polygons()
+points_gdf = load_points()
 
 # ============================
 # Sidebar filters
@@ -71,6 +76,7 @@ else:
     selected_ids = [int(i) for i in selected_raw]
 
 filtered_polygons = loc_gdf[loc_gdf["id"].isin(selected_ids)]
+filtered_points = points_gdf[points_gdf["id"].isin(selected_ids)]
 
 # ============================
 # Polygon Layer Toggles
@@ -162,66 +168,66 @@ if show_suggested and not suggested_gdf.empty:
         name="Suggested Locations",
     ).add_to(m)
 
-# Add centroid points matching polygon color
-for _, row in filtered_polygons.iterrows():
-    centroid = row.geometry.centroid
-    color = "green" if row["id"] <= 10 else "red"
-    if (color == "green" and show_suggested) or (color == "red" and show_existing):
-        folium.CircleMarker(
-            location=[centroid.y, centroid.x],
-            radius=4,
-            color=color,
-            fill=True,
-            fill_color=color,
-            fill_opacity=0.7,
-            popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
-        ).add_to(m)
+# ============================
+# Add polygon centroids & points with color & labels
+# ============================
+def add_markers(gdf_layer):
+    for _, row in gdf_layer.iterrows():
+        color = "green" if row["id"] <= 10 else "red"
+        if (color == "green" and show_suggested) or (color == "red" and show_existing):
+            # Circle marker
+            folium.CircleMarker(
+                location=[row.geometry.centroid.y, row.geometry.centroid.x] if gdf_layer.equals(filtered_polygons) else [row.geometry.y, row.geometry.x],
+                radius=4,
+                color=color,
+                fill=True,
+                fill_color=color,
+                fill_opacity=0.7,
+                popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
+            ).add_to(m)
+
+            # DivIcon label
+            folium.Marker(
+                location=[row.geometry.centroid.y, row.geometry.centroid.x] if gdf_layer.equals(filtered_polygons) else [row.geometry.y, row.geometry.x],
+                icon=folium.DivIcon(
+                    html=f"""
+                    <div style="
+                        display: inline-block;
+                        font-size: 10px; 
+                        color: black; 
+                        font-weight: bold; 
+                        text-align: center; 
+                        line-height: 1.2; 
+                        padding: 3px 5px; 
+                        background-color: white; 
+                        border-radius: 2px;
+                        box-sizing: border-box;">
+                        ID: {row['id']}<br>{row['acreage']}ha
+                    </div>
+                    """
+                )
+            ).add_to(m)
+
+# Add polygon centroids
+add_markers(filtered_polygons)
+
+# Add points from point shapefile
+add_markers(filtered_points)
 
 # ============================
-# Add polygon labels (ID + Acreage) with white buffer and bold text
-# ============================
-for _, row in filtered_polygons.iterrows():
-    centroid = row.geometry.centroid
-    color = "green" if row["id"] <= 10 else "red"
-    if (color == "green" and show_suggested) or (color == "red" and show_existing):
-        folium.Marker(
-            location=[centroid.y, centroid.x],
-            icon=folium.DivIcon(
-                html=f"""
-                <div style="
-                    display: inline-block;
-                    font-size: 10px; 
-                    color: black; 
-                    font-weight: bold; 
-                    text-align: center; 
-                    line-height: 1.2; 
-                    padding: 3px 5px; 
-                    background-color: white; 
-                    border-radius: 2px;
-                    box-sizing: border-box;">
-                    ID: {row['id']}<br>{row['acreage']}ha
-                </div>
-                """
-            )
-        ).add_to(m)
-
-
-# ============================
-# Map legend on top-left (adjusted to cover polygon centroids if needed)
+# Map legend on top-left
 # ============================
 legend_html = """
 <div style="position: fixed; 
-     top: 100px; left: 20px; width: 180px; height: 100px; 
+     top: 100px; left: 20px; width: 180px; height: 120px; 
      border:2px solid grey; z-index:9999; font-size:14px;
      background-color:white; padding: 10px; line-height:1.3;">
-
 <b>Legend</b><br>
 🟩 Suggested Locations<br>
 🟥 Existing Locations<br>
-🔵 Polygon Centroids
+🔵 Polygon Centroids<br>
+🔹 Points
 </div>
-
-
 """
 m.get_root().html.add_child(folium.Element(legend_html))
 
