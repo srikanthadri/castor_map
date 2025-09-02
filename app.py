@@ -46,7 +46,11 @@ else:
 villages = ["All"] + sorted(villages)
 selected_village = st.sidebar.selectbox("Select Village", villages)
 
-# Point filter (suggested locations)
+# Toggle layers
+show_points = st.sidebar.checkbox("Show Suggested Locations (Points)", value=True)
+show_buffers = st.sidebar.checkbox("Show 25 km Buffers", value=False)
+
+# Point selection
 point_names = points_gdf["NAME"].tolist() if "NAME" in points_gdf.columns else [f"Point {i}" for i in range(len(points_gdf))]
 point_selection = st.sidebar.selectbox("Select Suggested Location", ["None"] + point_names)
 
@@ -94,18 +98,19 @@ folium.GeoJson(filtered_gdf, style_function=style_function, tooltip=tooltip, nam
 # ----------------------------
 # Add suggested locations (points)
 # ----------------------------
-for _, row in points_gdf.iterrows():
-    folium.Marker(
-        location=[row.geometry.y, row.geometry.x],
-        popup=row["NAME"] if "NAME" in row else "Suggested Location",
-        icon=folium.Icon(color="red", icon="map-marker")
-    ).add_to(m)
+if show_points:
+    for _, row in points_gdf.iterrows():
+        folium.Marker(
+            location=[row.geometry.y, row.geometry.x],
+            popup=row["NAME"] if "NAME" in row else "Suggested Location",
+            icon=folium.Icon(color="red", icon="map-marker")
+        ).add_to(m)
 
 # ----------------------------
 # Highlight villages within 25 km of selected point
 # ----------------------------
 buffered_villages = None
-if point_selection != "None":
+if show_buffers and point_selection != "None":
     selected_point = points_gdf[points_gdf["NAME"] == point_selection] if "NAME" in points_gdf.columns else points_gdf.iloc[[point_names.index(point_selection)-1]]
 
     # Reproject to meters for buffer
