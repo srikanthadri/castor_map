@@ -211,7 +211,7 @@ for _, row in filtered_polygons.iterrows():
     if (color == "green" and show_suggested) or (color == "red" and show_existing):
         folium.CircleMarker(
             location=[centroid.y, centroid.x],
-            radius=10,
+            radius=6,
             color='blue',
             fill=True,
             fill_color='blue',
