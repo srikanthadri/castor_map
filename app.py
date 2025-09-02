@@ -93,6 +93,8 @@ filtered_polygons = loc_gdf[loc_gdf["id"].isin(selected_ids)]
 # ============================
 # Map
 # ============================
+# Initialize filtered_gdf with all villages
+filtered_gdf = gdf.copy()
 if filtered_gdf.empty:
     map_center = [gdf.geometry.centroid.y.mean(), gdf.geometry.centroid.x.mean()]
 else:
