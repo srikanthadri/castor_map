@@ -145,7 +145,7 @@ suggested_gdf = filtered_polygons[filtered_polygons["id"] <= 10]
 if show_existing and not existing_gdf.empty:
     folium.GeoJson(
         existing_gdf,
-        style_function=lambda x: style_location(x, "red"),
+        style_function=lambda x: style_location(x, "blue"),
         tooltip=GeoJsonTooltip(fields=["id", "acreage"], aliases=["Location ID:", "Acreage (ha):"]),
         name="Existing Locations",
     ).add_to(m)
@@ -164,9 +164,9 @@ if show_suggested and not suggested_gdf.empty:
 # ============================
 for _, row in filtered_polygons.iterrows():
     centroid = row.geometry.centroid
-    color = "green" if row["id"] <= 10 else "red"
+    color = "green" if row["id"] <= 10 else "blue"
 
-    if (color == "green" and show_suggested) or (color == "red" and show_existing):
+    if (color == "green" and show_suggested) or (color == "blue" and show_existing):
         # Small circle marker
         folium.CircleMarker(
             location=[centroid.y, centroid.x],
@@ -419,7 +419,7 @@ for pid in selected_ids:
 # if show_existing and not existing_gdf.empty:
 #     folium.GeoJson(
 #         existing_gdf,
-#         style_function=lambda x: style_location(x, "red"),
+#         style_function=lambda x: style_location(x, "blue"),
 #         tooltip=GeoJsonTooltip(fields=["id", "acreage"], aliases=["Location ID:", "Acreage (ha):"]),
 #         name="Existing Locations",
 #     ).add_to(m)
@@ -436,8 +436,8 @@ for pid in selected_ids:
 #     # # Add centroid points matching polygon color
 #     # for _, row in filtered_polygons.iterrows():
 #     #     centroid = row.geometry.centroid
-#     #     color = "green" if row["id"] <= 10 else "red"
-#     #     if (color == "green" and show_suggested) or (color == "red" and show_existing):
+#     #     color = "green" if row["id"] <= 10 else "blue"
+#     #     if (color == "green" and show_suggested) or (color == "blue" and show_existing):
 #     #         folium.CircleMarker(
 #     #             location=[centroid.y, centroid.x],
 #     #             radius=4,
@@ -450,9 +450,9 @@ for pid in selected_ids:
 
 # # for _, row in filtered_polygons.iterrows():
 # #     centroid = row.geometry.centroid
-# #     color = "green" if row["id"] <= 10 else "red"
+# #     color = "green" if row["id"] <= 10 else "blue"
     
-# #     if (color == "green" and show_suggested) or (color == "red" and show_existing):
+# #     if (color == "green" and show_suggested) or (color == "blue" and show_existing):
 # #         # Small circle marker
 # #         folium.CircleMarker(
 # #             location=[centroid.y, centroid.x],
@@ -487,9 +487,9 @@ for pid in selected_ids:
 # #         ).add_to(m)
 # for _, row in filtered_polygons.iterrows():
 #     centroid = row.geometry.centroid
-#     color = "green" if row["id"] <= 10 else "red"
+#     color = "green" if row["id"] <= 10 else "blue"
     
-#     if (color == "green" and show_suggested) or (color == "red" and show_existing):
+#     if (color == "green" and show_suggested) or (color == "blue" and show_existing):
 #         folium.CircleMarker(
 #             location=[centroid.y, centroid.x],
 #             radius=5,
