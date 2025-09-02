@@ -69,7 +69,7 @@ selected_village = st.sidebar.selectbox("Select Village", villages, index=0)
 
 # Polygon filter
 all_ids = sorted([int(i) for i in loc_gdf["id"].unique().tolist()])
-selected_raw = st.sidebar.multiselect("Select Location IDs", ["All"] + all_ids, default="All")
+selected_raw = st.sidebar.multiselect("Select Suggested Location IDs", ["All"] + all_ids, default="All")
 
 if "All" in selected_raw:
     selected_ids = all_ids
