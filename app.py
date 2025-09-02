@@ -211,10 +211,10 @@ for _, row in filtered_polygons.iterrows():
     if (color == "green" and show_suggested) or (color == "red" and show_existing):
         folium.CircleMarker(
             location=[centroid.y, centroid.x],
-            radius=6,
-            color=color,
+            radius=10,
+            color='blue',
             fill=True,
-            fill_color=color,
+            fill_color='blue',
             fill_opacity=0.9,
             popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
         ).add_to(m)
