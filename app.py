@@ -9,7 +9,7 @@ from streamlit_folium import st_folium
 # ----------------------------
 @st.cache_data
 def load_points():
-    points = gpd.read_file("shp//suggested_points.shp")  # ensure updated file is here
+    points = gpd.read_file("suggested_points.shp")  # ensure updated file is here
     points = points.to_crs(epsg=4326)
     return points
 
