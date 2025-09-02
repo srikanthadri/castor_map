@@ -204,20 +204,19 @@ for _, row in filtered_polygons.iterrows():
                 """
             )
         ).add_to(m)
-# Add centroid points matching polygon color
 for _, row in filtered_polygons.iterrows():
     centroid = row.geometry.centroid
+    # Decide color based on ID
     color = "green" if row["id"] <= 10 else "red"
+    
+    # Check layer toggle
     if (color == "green" and show_suggested) or (color == "red" and show_existing):
-        folium.CircleMarker(
+        folium.Marker(
             location=[centroid.y, centroid.x],
-            radius=5,
-            color='blue',
-            fill=True,
-            fill_color='blue',
-            fill_opacity=0.8,
+            icon=folium.Icon(color=color, icon="map-marker", prefix="fa"),  # FontAwesome pin
             popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
         ).add_to(m)
+
 
 
 # ============================
