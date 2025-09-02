@@ -96,8 +96,8 @@ if selected_tehsil != "All":
 
 # Filter villages that fall inside selected polygons
 if not filtered_polygons.empty and "All" not in selected_ids:
-    filtered_gdf = gpd.sjoin(filtered_gdf, filtered_polygons, predicate="within")
-
+    # Keep villages that intersect polygons (touch or overlap)
+    filtered_gdf = gpd.sjoin(filtered_gdf, filtered_polygons, predicate="intersects")
 # ============================
 # Map
 # ============================
@@ -245,7 +245,8 @@ ids_to_export = selected_ids
 
 for pid in ids_to_export:
     poly = loc_gdf[loc_gdf["id"] == pid]
-    villages_inside = gpd.sjoin(gdf, poly, predicate="within")
+    # Use intersects instead of within
+    villages_inside = gpd.sjoin(gdf, poly, predicate="intersects")
     if not villages_inside.empty:
         export_df = villages_inside[["VILLAGE", "TEHSIL", "castor_ha"]].copy()
         st.sidebar.download_button(
@@ -254,3 +255,4 @@ for pid in ids_to_export:
             file_name=f"polygon_{pid}_villages.csv",
             mime="text/csv",
         )
+
