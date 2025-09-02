@@ -177,13 +177,24 @@ if show_suggested and not suggested_gdf.empty:
                 popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
             ).add_to(m)
 
-# ============================
-# Add polygon labels (ID + Acreage) with white buffer and bold text
-# ============================
 for _, row in filtered_polygons.iterrows():
     centroid = row.geometry.centroid
     color = "green" if row["id"] <= 10 else "red"
+    
+    # Check layer toggle
     if (color == "green" and show_suggested) or (color == "red" and show_existing):
+        # Add small circle marker
+        folium.CircleMarker(
+            location=[centroid.y, centroid.x],
+            radius=5,  # small marker
+            color=color,
+            fill=True,
+            fill_color=color,
+            fill_opacity=0.6,
+            popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
+        ).add_to(m)
+        
+        # Add label on top
         folium.Marker(
             location=[centroid.y, centroid.x],
             icon=folium.DivIcon(
@@ -199,28 +210,11 @@ for _, row in filtered_polygons.iterrows():
                     background-color: white; 
                     border-radius: 2px;
                     box-sizing: border-box;">
-                    ID: {row['id']}<br>{row['acreage']}ha
+                    ID: {row['id']}<br>{row['acreage']} ha
                 </div>
                 """
             )
         ).add_to(m)
-    for _, row in filtered_polygons.iterrows():
-        centroid = row.geometry.centroid
-        # Decide color based on ID
-        color = "green" if row["id"] <= 10 else "red"
-        
-        # Check layer toggle
-        if (color == "green" and show_suggested) or (color == "red" and show_existing):
-            folium.CircleMarker(
-                location=[centroid.y, centroid.x],
-                radius=5,  # smaller size
-                color=color,
-                fill=True,
-                fill_color=color,
-                fill_opacity=0.7,
-                popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
-            ).add_to(m)
-
 
 
 # ============================
