@@ -164,13 +164,13 @@ if show_suggested and not suggested_gdf.empty:
 # ============================
 for _, row in filtered_polygons.iterrows():
     centroid = row.geometry.centroid
-    color = "maroon" if row["id"] <= 10 else "blue"
+    color = "red" if row["id"] <= 10 else "blue"  # match legend colors
 
-    if (color == "maroon" and show_suggested) or (color == "blue" and show_existing):
+    if (color == "red" and show_suggested) or (color == "blue" and show_existing):
         # Small circle marker
         folium.CircleMarker(
             location=[centroid.y, centroid.x],
-            radius=4,  # small size
+            radius=5,  # small size
             color=color,
             fill=True,
             fill_color=color,
@@ -178,9 +178,9 @@ for _, row in filtered_polygons.iterrows():
             popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
         ).add_to(m)
 
-        # Label on top (with small offset)
+        # Label on top (tiny offset)
         folium.Marker(
-            location=[centroid.y + 0.0001, centroid.x],  # tiny latitude offset
+            location=[centroid.y + 0.0001, centroid.x],
             icon=folium.DivIcon(
                 html=f"""
                 <div style="
@@ -205,7 +205,7 @@ for _, row in filtered_polygons.iterrows():
 # ============================
 legend_html = """
 <div style="position: fixed; 
-     top: 100px; left: 20px; width: 180px; height: 100px; 
+     top: 100px; left: 20px; width: 180px; height: 80px; 
      border:2px solid grey; z-index:9999; font-size:14px;
      background-color:white; padding: 10px; line-height:1.3;">
 
