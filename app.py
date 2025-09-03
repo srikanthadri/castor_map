@@ -6,7 +6,7 @@ import folium
 from folium.features import GeoJsonTooltip
 from streamlit_folium import st_folium
 import branca.colormap as cm
-
+from PIL import Image
 st.set_page_config(layout="wide")
 
 # ----------------------------
@@ -37,6 +37,8 @@ def load_location_polygons():
 # ============================
 # App title
 # ============================
+
+
 st.title("🌱 BANAS KANTHA District - Castor Crop Acreage Dashboard")
 
 gdf = load_villages()
@@ -73,8 +75,8 @@ filtered_polygons = loc_gdf[loc_gdf["id"].isin(selected_ids)]
 # Polygon Layer Toggles
 # ============================
 st.sidebar.subheader("Polygon Layer Controls")
-show_existing = st.sidebar.checkbox("Show Existing Locations (Red)", value=True)
-show_suggested = st.sidebar.checkbox("Show Suggested Locations (Green)", value=True)
+show_existing = st.sidebar.checkbox("Show Existing Locations (Blue)", value=True)
+show_suggested = st.sidebar.checkbox("Show Suggested Locations (Red)", value=True)
 
 # ============================
 # Data filtering
@@ -154,7 +156,7 @@ if show_existing and not existing_gdf.empty:
 if show_suggested and not suggested_gdf.empty:
     folium.GeoJson(
         suggested_gdf,
-        style_function=lambda x: style_location(x, "green"),
+        style_function=lambda x: style_location(x, "maroon"),
         tooltip=GeoJsonTooltip(fields=["id", "acreage"], aliases=["Location ID:", "Acreage (ha):"]),
         name="Suggested Locations",
     ).add_to(m)
@@ -162,35 +164,38 @@ if show_suggested and not suggested_gdf.empty:
 # ============================
 # Add centroids with small markers + labels
 # ============================
+# ============================
+# Add centroids with improved visibility
+# ============================
 for _, row in filtered_polygons.iterrows():
     centroid = row.geometry.centroid
-    color = "green" if row["id"] <= 10 else "blue"
+    color = "red" if row["id"] <= 10 else "blue"  # match legend colors
 
-    if (color == "green" and show_suggested) or (color == "blue" and show_existing):
-        # Small circle marker
+    if (color == "red" and show_suggested) or (color == "blue" and show_existing):
+        # Larger circle marker for better visibility
         folium.CircleMarker(
             location=[centroid.y, centroid.x],
-            radius=4,  # small size
+            radius=7,  # increased from 5
             color=color,
             fill=True,
             fill_color=color,
-            fill_opacity=0.6,
+            fill_opacity=0.8,  # more visible
             popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
         ).add_to(m)
 
-        # Label on top (with small offset)
+        # Smaller label on top
         folium.Marker(
-            location=[centroid.y + 0.0001, centroid.x],  # tiny latitude offset
+            location=[centroid.y + 0.0001, centroid.x],
             icon=folium.DivIcon(
                 html=f"""
                 <div style="
                     display: inline-block;
-                    font-size: 10px; 
+                    font-size: 8px;  /* decreased font size */
                     color: black; 
                     font-weight: bold; 
                     text-align: center; 
-                    line-height: 1.2; 
-                    padding: 2px 4px; 
+                    line-height: 1; 
+                    padding: 1px 3px; 
                     background-color: white; 
                     border-radius: 2px;
                     box-sizing: border-box;">
@@ -200,19 +205,19 @@ for _, row in filtered_polygons.iterrows():
             )
         ).add_to(m)
 
+
 # ============================
 # Map legend
 # ============================
 legend_html = """
 <div style="position: fixed; 
-     top: 100px; left: 20px; width: 180px; height: 100px; 
+     top: 100px; left: 20px; width: 180px; height: 80px; 
      border:2px solid grey; z-index:9999; font-size:14px;
      background-color:white; padding: 10px; line-height:1.3;">
 
 <b>Legend</b><br>
-🟩 Suggested Locations<br>
-🟥 Existing Locations<br>
-🔵 Polygon Centroids
+🔴 Suggested Locations<br>
+🔵 Existing Locations
 </div>
 """
 m.get_root().html.add_child(folium.Element(legend_html))
@@ -269,6 +274,7 @@ for pid in selected_ids:
             file_name=f"polygon_{pid}_villages.csv",
             mime="text/csv",
         )
+
 # import os
 # import glob
 # import streamlit as st
@@ -348,7 +354,7 @@ for pid in selected_ids:
 # # ============================
 # st.sidebar.subheader("Polygon Layer Controls")
 # show_existing = st.sidebar.checkbox("Show Existing Locations (Red)", value=True)
-# show_suggested = st.sidebar.checkbox("Show Suggested Locations (Green)", value=True)
+# show_suggested = st.sidebar.checkbox("Show Suggested Locations (maroon)", value=True)
 
 # # ============================
 # # Data filtering
@@ -574,3 +580,27 @@ for pid in selected_ids:
 #             file_name=f"polygon_{pid}_villages.csv",
 #             mime="text/csv",
 #         )
+st.markdown(
+    """
+    <hr style="margin-top:20px; margin-bottom:10px;">
+    <div style="text-align:center; font-size:14px; color:grey;">
+        © Niruthi Climate and Ecosystems Pvt Ltd, Hyderabad
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+# # ============================
+# # Sidebar logo
+# # ============================
+
+# Sidebar logo
+logo = Image.open("shp//Niruthi_R_logo.png")
+st.sidebar.image(logo, width=150)  # adjust width
+st.sidebar.markdown(
+    "<div style='text-align:center; font-size:13px; color:grey;'>"
+    "Niruthi Climate and Ecosystems Pvt Ltd<br>Hyderabad"
+    "</div>",
+    unsafe_allow_html=True
+)
+update ths please . dnt remoe anything from this code
