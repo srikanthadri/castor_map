@@ -603,4 +603,3 @@ st.sidebar.markdown(
     "</div>",
     unsafe_allow_html=True
 )
-update ths please . dnt remoe anything from this code
