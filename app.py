@@ -253,64 +253,6 @@ if village_info:
         st.sidebar.write(f"**{k}:** {v}")
 
 # ============================
-# Add centroids with improved visibility
-# ============================
-location_records = []  # <-- NEW list to store centroid info
-
-for _, row in filtered_polygons.iterrows():
-    centroid = row.geometry.centroid
-    color = "red" if row["id"] <= 10 else "blue"  # match legend colors
-
-    if (color == "red" and show_suggested) or (color == "blue" and show_existing):
-        # Larger circle marker for better visibility
-        folium.CircleMarker(
-            location=[centroid.y, centroid.x],
-            radius=7,
-            color=color,
-            fill=True,
-            fill_color=color,
-            fill_opacity=0.8,
-            popup=f"ID: {row['id']}, Acreage: {row['acreage']} ha"
-        ).add_to(m)
-
-        # Smaller label on top
-        folium.Marker(
-            location=[centroid.y + 0.0001, centroid.x],
-            icon=folium.DivIcon(
-                html=f"""
-                <div style="
-                    display: inline-block;
-                    font-size: 8px;
-                    color: black; 
-                    font-weight: bold; 
-                    text-align: center; 
-                    line-height: 1; 
-                    padding: 1px 3px; 
-                    background-color: white; 
-                    border-radius: 2px;
-                    box-sizing: border-box;">
-                    ID: {row['id']}<br>{row['acreage']} ha
-                </div>
-                """
-            )
-        ).add_to(m)
-
-        # ============================
-        # Collect centroid info for CSV
-        # ============================
-        villages_inside = gpd.sjoin(gdf, gpd.GeoDataFrame(geometry=[row.geometry], crs=gdf.crs), predicate="intersects")
-        for _, vrow in villages_inside.iterrows():
-            location_records.append({
-                "Village": vrow["VILLAGE"],
-                "Tehsil": vrow["TEHSIL"],
-                "Polygon ID": row["id"],
-                "Acreage (ha)": row["acreage"],
-                "Latitude": centroid.y,
-                "Longitude": centroid.x,
-                "Type": "Suggested" if color == "red" else "Existing"
-            })
-
-# ============================
 # Download CSVs
 # ============================
 csv_data = gdf[["DISTRICT", "TEHSIL", "VILLAGE", "castor_ha"]].copy()
@@ -332,20 +274,10 @@ for pid in selected_ids:
             file_name=f"polygon_{pid}_villages.csv",
             mime="text/csv",
         )
-
-# ============================
-# New download for centroid locations
-# ============================
 if location_records:
-    import pandas as pd
-    loc_df = pd.DataFrame(location_records)
-    st.sidebar.download_button(
-        "📥 Download Location Points (CSV)",
-        data=loc_df.to_csv(index=False),
-        file_name="polygon_locations.csv",
-        mime="text/csv",
-    )
-
+    df = pd.DataFrame(location_records)
+    csv = df.to_csv(index=False).encode("utf-8")
+    st.download_button("📥 Download Locations CSV", csv, "locations.csv", "text/csv")
 # import os
 # import glob
 # import streamlit as st
@@ -674,3 +606,4 @@ st.sidebar.markdown(
     "</div>",
     unsafe_allow_html=True
 )
+update ths please . dnt remoe anything from this code
