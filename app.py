@@ -586,7 +586,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-logo = Image.open("shp//logo.png")
+logo = Image.open("shp//Niruthi_R_logo.png")
 st.sidebar.image(logo, width=150)  # company logo
 st.sidebar.markdown(
     "<div style='text-align:center; font-size:13px; color:grey;'>"
