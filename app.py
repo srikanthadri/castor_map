@@ -43,7 +43,7 @@ logo = Image.open("shp//Niruthi_R_logo.png")
 st.markdown(
     f"""
     <div style="text-align: center;">
-        <img src="data:image/jpg;base64,{st.image(logo, output_format='JPEG').data}" width="150">
+        <img src="data:image/jpg;base64,{st.image(logo, output_format='JPEG').data}" width="250">
     </div>
     """,
     unsafe_allow_html=True
