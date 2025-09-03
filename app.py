@@ -37,6 +37,17 @@ def load_location_polygons():
 # ============================
 # App title
 # ============================
+
+# Center the logo
+logo = Image.open("shp//Niruthi_R_logo.png")
+st.markdown(
+    f"""
+    <div style="text-align: center;">
+        <img src="data:image/jpg;base64,{st.image(logo, output_format='JPEG').data}" width="150">
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 st.title("🌱 BANAS KANTHA District - Castor Crop Acreage Dashboard")
 
 gdf = load_villages()
@@ -587,16 +598,16 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ============================
-# Sidebar logo
-# ============================
+# # ============================
+# # Sidebar logo
+# # ============================
 
-# Sidebar logo
-logo = Image.open("shp//Niruthi_R_logo.png")
-st.sidebar.image(logo, width=150)  # adjust width
-st.sidebar.markdown(
-    "<div style='text-align:center; font-size:13px; color:grey;'>"
-    "Niruthi Climate and Ecosystems Pvt Ltd<br>Hyderabad"
-    "</div>",
-    unsafe_allow_html=True
-)
+# # Sidebar logo
+# logo = Image.open("shp//Niruthi_R_logo.png")
+# st.sidebar.image(logo, width=150)  # adjust width
+# st.sidebar.markdown(
+#     "<div style='text-align:center; font-size:13px; color:grey;'>"
+#     "Niruthi Climate and Ecosystems Pvt Ltd<br>Hyderabad"
+#     "</div>",
+#     unsafe_allow_html=True
+# )
