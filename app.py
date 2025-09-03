@@ -75,8 +75,8 @@ filtered_polygons = loc_gdf[loc_gdf["id"].isin(selected_ids)]
 # Polygon Layer Toggles
 # ============================
 st.sidebar.subheader("Polygon Layer Controls")
-show_existing = st.sidebar.checkbox("Show Existing Locations (Red)", value=True)
-show_suggested = st.sidebar.checkbox("Show Suggested Locations (Green)", value=True)
+show_existing = st.sidebar.checkbox("Show Existing Locations (Blue)", value=True)
+show_suggested = st.sidebar.checkbox("Show Suggested Locations (Red)", value=True)
 
 # ============================
 # Data filtering
