@@ -6,7 +6,7 @@ import folium
 from folium.features import GeoJsonTooltip
 from streamlit_folium import st_folium
 import branca.colormap as cm
-
+from PIL import Image
 st.set_page_config(layout="wide")
 
 # ----------------------------
