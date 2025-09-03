@@ -577,3 +577,12 @@ for pid in selected_ids:
 #             file_name=f"polygon_{pid}_villages.csv",
 #             mime="text/csv",
 #         )
+st.markdown(
+    """
+    <hr style="margin-top:20px; margin-bottom:10px;">
+    <div style="text-align:center; font-size:14px; color:grey;">
+        © Niruthi Climate and Ecosystems Pvt Ltd, Hyderabad
+    </div>
+    """,
+    unsafe_allow_html=True
+)
