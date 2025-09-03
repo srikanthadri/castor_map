@@ -586,3 +586,11 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+logo = Image.open("shp//logo.png")
+st.sidebar.image(logo, width=150)  # company logo
+st.sidebar.markdown(
+    "<div style='text-align:center; font-size:13px; color:grey;'>"
+    "Niruthi Climate and Ecosystems Pvt Ltd<br>Hyderabad"
+    "</div>",
+    unsafe_allow_html=True
+)
